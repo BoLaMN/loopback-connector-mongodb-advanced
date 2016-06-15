@@ -1,0 +1,26 @@
+{
+  "name": "loopback-connector-mongodb-advanced",
+  "version": "0.2.0",
+  "description": "loopback-connector-mongodb-advanced",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": {
+    "name": "BoLaMN",
+    "url": "https://github.com/BoLaMN"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BoLaMN/loopback-connector-mongodb-advanced"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "async": "^1.5.2",
+    "bluebird": "^3.4.0",
+    "debug": "^2.2.0",
+    "lodash": "^4.13.1",
+    "loopback-connector": "^2.3.0",
+    "mongodb": "^2.1.18"
+  }
+}
