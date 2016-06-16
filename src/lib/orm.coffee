@@ -19,27 +19,21 @@ class ORM extends Connector
     collection = @collection model
     properties = @properties model
 
-    try
-      query = new Query filter, properties
-    catch err
-      return callback err
-
-    where = query.filter.where or {}
+    { filter, options } = new Query filter, properties
+    { where, aggregate, fields } = filter
 
     finish = (err, results) ->
       callback err, rewriteIds results, properties
 
-    if query.aggregate
+    if aggregate
       aggregate = [
         { '$match': where }
-        { '$group': query.aggregateGroup }
+        { '$group': filter.aggregateGroup }
       ]
 
       collection.aggregate aggregate, finish
     else
-      delete query.filter.where
-
-      collection.find where, query.fields, query, finish
+      collection.find where, fields, options, finish
 
   ###*
   # Count the number of instances for the given model
@@ -58,12 +52,8 @@ class ORM extends Connector
     collection = @collection model
     properties = @properties model
 
-    try
-      query = new Query filter, properties
-    catch err
-      return callback err
-
-    where = query.filter.where or {}
+    { filter, options } = new Query filter, properties
+    { where } = filter
 
     collection.count where, callback
 
@@ -108,12 +98,8 @@ class ORM extends Connector
     collection = @collection model
     properties = @properties model
 
-    try
-      query = new Query filter, properties
-    catch err
-      return callback err
-
-    where = query.filter.where or {}
+    { filter, options } = new Query filter, properties
+    { where, fields } = filter
 
     collection.remove where, options, (err, results) ->
       if err
@@ -252,12 +238,8 @@ class ORM extends Connector
     collection = @collection model
     properties = @properties model
 
-    try
-      query = new Query filter, properties
-    catch err
-      return callback err
-
-    where = query.filter.where or {}
+    { filter, options } = new Query filter, properties
+    { where } = filter
 
     collection.update where, data, options, callback
 

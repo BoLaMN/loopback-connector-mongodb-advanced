@@ -1,129 +1,160 @@
-Aggregate = require './aggregate'
+'use strict'
 
-{ isString, isPlainObject } = require 'lodash'
+debug = require('debug')('loopback:connector:mongodb-advanced')
+
+Aggregate = require './aggregate'
+Where = require './where'
+
+{ isObject, isString
+  isArray, isPlainObject, extend } = require 'lodash'
 { ObjectId } = require 'mongodb'
+
+###*
+* Query
+###
 
 class Query
   constructor: (filter, @properties) ->
-    @fields = @parseFields filter.fields
+    @filter = fields: {}, where: {}
+    @options = sort: {}
 
-    @checkAggregate filter
+    for own key, value of filter
+      console.log key, value
+      @[key] value
 
-    delete filter.fields
+  ###*
+  # set where query
+  #
+  # @param {String} key
+  # @api public
+  ###
 
-    @filter = @normalizeFilter(filter) or {}
+  where: (conditions) ->
+    { query } = new Where conditions
+    @filter.where = query
 
     this
 
-  checkAggregate: (filter) ->
-    aggregateOptions = [
-      'lookup'
-      'groupBy'
-      'sum'
-      'average'
-      'min'
-      'max'
-    ]
+  ###*
+  # set aggregate query
+  #
+  # @param {String} key
+  # @api public
+  ###
 
-    aggregates = Object.keys(filter).filter (filterKey) ->
-      filterKey in aggregateOptions
+  aggregate: (conditions) ->
+    { query } = new Aggregate conditions
+    @filter.aggregate = query
 
-    if not aggregates.length
-      return filter
+    this
 
-    @aggregate = new Aggregate filter
+  ###*
+  # Handle iterating over include/exclude methods
+  #
+  # @param {String} key
+  # @param {Mixed} value
+  # @api public
+  ###
 
-    return
+  fields: (fields, value = 1) ->
+    if isArray fields
+      fields.forEach (key) =>
+        @fields key
 
-  normalizeFilter: (filter) ->
-    filter.where = @parseWhere filter.where
-    filter.sort = @parseSort filter.sort
-    filter
+    if isObject fields
+      keys = Object.keys fields
+      keys.forEach (key) =>
+        @fields key, fields[key]
 
-  parseWhere: (where) ->
-    query = {}
+    if isString fields
+      @filter.fields[fields] = value
 
-    if where is null or typeof where isnt 'object'
-      return query
+    this
 
-    Object.keys(where).forEach (propName) ->
-      cond = where[propName]
+  ###*
+  # Include fields in a result
+  #
+  # @param {String} key
+  # @api public
+  ###
 
-      if propName in [ 'and', 'or', 'nor' ]
-        if Array.isArray cond
-          cond = cond.map (c) =>
-            @parseWhere c
+  include: (includes) ->
+    debug 'todo, move over to $lookup'
+    return this
 
-        query['$' + propName] = cond
-        delete query[propName]
+  ###*
+  # Exclude fields from result
+  #
+  # @param {String} key
+  # @api public
+  ###
 
-      if propName is 'id'
-        propName = '_id'
+  exclude: (fields) ->
+    @fields fields, 0
 
-      spec = false
-      options = null
+    this
 
-      if isPlainObject cond
-        options = cond.options
-        spec = Object.keys(cond)[0]
-        cond = cond[spec]
+  ###*
+  # Set query limit
+  #
+  # @param {Number} limit - limit number
+  # @api public
+  ###
 
-      if spec
-        query[propName] = switch spec
-          when 'between'
-            $gte: cond[0]
-            $lte: cond[1]
-          when 'inq'
-            $in: cond
-          when 'nin'
-            $nin: cond
-          when 'like'
-            $regex: new RegExp cond, options
-          when 'nlike'
-            $not: new RegExp cond, options
-          when 'neq'
-            $ne: cond
-          when 'regexp'
-            $regex: cond
+  limit: (limit) ->
+    @options.limit = limit
 
-        if not query[propName]
-          query[propName] = {}
-          query[propName]['$' + spec] = cond
-      else
-        query[propName] = cond or $type: 10
+    this
 
-    query
+  ###*
+  # Set query skip
+  #
+  # @param {Number} skip - skip number
+  # @api public
+  ###
 
-  parseSort: (order) ->
-    sort = {}
+  skip: (skip) ->
+    @options.skip = skip
 
-    if order
-      if isString order
-        order = order.split ','
+    this
 
-      index = 0
-      len = order.length
+  ###*
+  # Search using text index
+  #
+  # @param {String} text
+  # @api public
+  ###
 
-      while index < len
-        [input, key, m ] = /\s+([\w\d]+) (A|DE)SC$/.exec order[index]
+  search: (text) ->
+    @where '$text': '$search': text
 
-        if key == 'id'
-          key = '_id'
+    this
 
-        if m and m[1] == 'DE'
-          sort[key] = -1
-        else
-          sort[key] = 1
-        index++
+  ###*
+  # Sort query results
+  #
+  # @param {Object} sort - sort params
+  # @api public
+  ###
+
+  sort: (sorts, value) ->
+    if isArray sorts
+      sorts.forEach (sort) =>
+        @sort.apply this, sort.split ' '
+
+    if isString value
+      matches = sorts.match /([\w\d]+) (A|DE)SC/gi
+
+      if matches
+        return @sort matches
+
+      if sorts is 'id'
+        sorts = '_id'
+
+      @options.sort[sorts] = if value is 'DE' then -1 else 1
     else
-      sort = _id: 1
+      @options.sort._id = 1
 
-    sort
-
-  parseFields: (original = []) ->
-    fields = {}
-    original.forEach (field) ->
-      fields[field] = 1
-    fields
+    this
 
 module.exports = Query

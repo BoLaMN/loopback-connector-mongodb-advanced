@@ -1,4 +1,4 @@
-{ isString } = require 'lodash'
+{ isString, isArray } = require 'lodash'
 { ObjectId, Binary } = require 'mongodb'
 
 exports.rewriteId = (model = {}, schema) ->
@@ -21,8 +21,9 @@ exports.rewriteId = (model = {}, schema) ->
   model
 
 exports.rewriteIds = (models, schema) ->
-  models.map (model) ->
-    exports.rewriteId model, schema
+  if isArray models
+    models.map (model) ->
+      exports.rewriteId model, schema
 
 exports.normalizeId = (value) ->
   if !value.id
