@@ -23,6 +23,7 @@ class ORM extends Connector
     { where, aggregate, fields } = filter
 
     finish = (err, results) ->
+      debug 'all.callback', model, results
       callback err, rewriteIds results, properties
 
     if aggregate
@@ -55,7 +56,10 @@ class ORM extends Connector
     { filter, options } = new Query filter, properties
     { where } = filter
 
-    collection.count where, callback
+    collection.count where
+      .tap (results) ->
+        debug 'count.callback', model, results
+      .asCallback callback
 
   ###*
   # Create a new model instance for the given data
@@ -68,7 +72,10 @@ class ORM extends Connector
 
     collection = @collection model
 
-    collection.insert data, safe: true, callback
+    collection.insert data, safe: true
+      .tap (results) ->
+        debug 'create.callback', model, results
+      .asCallback callback
 
   ###*
   # Delete a model instance by id
@@ -81,7 +88,10 @@ class ORM extends Connector
 
     collection = @collection model
 
-    collection.remove _id: id, true, callback
+    collection.remove _id: id, true
+      .tap (results) ->
+        debug 'delete.callback', model, results
+      .asCallback callback
 
   ###*
   # Delete all instances for the given model
@@ -114,8 +124,11 @@ class ORM extends Connector
       results.forEach (result) ->
         resultsArray.push id: result
 
-      callback null, rewriteIds(resultArray, properties)
+      result = rewriteIds(resultArray, properties)
 
+      debug 'destroyAll.callback', result
+
+      callback null, result
   ###*
   # Check if a model instance exists by id
   # @param {String} model The model name
@@ -128,7 +141,10 @@ class ORM extends Connector
 
     collection = @collection model
 
-    collection.findOne _id: id, options, callback
+    collection.findOne _id: id, options
+      .tap (results) ->
+        debug 'findOne.callback', model, results
+      .asCallback callback
 
   ###*
   # Find a model instance by id
@@ -241,7 +257,10 @@ class ORM extends Connector
     { filter, options } = new Query filter, properties
     { where } = filter
 
-    collection.update where, data, options, callback
+    collection.update where, data, options
+      .tap (results) ->
+        debug 'update.callback', model, results
+      .asCallback callback
 
   updateAll: @update
 

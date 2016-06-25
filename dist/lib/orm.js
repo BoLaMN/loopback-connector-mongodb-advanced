@@ -37,6 +37,7 @@ ORM = (function(superClass) {
     ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
     finish = function(err, results) {
+      debug('all.callback', model, results);
       return callback(err, rewriteIds(results, properties));
     };
     if (aggregate) {
@@ -76,7 +77,9 @@ ORM = (function(superClass) {
     properties = this.properties(model);
     ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
     where = filter.where;
-    return collection.count(where, callback);
+    return collection.count(where).tap(function(results) {
+      return debug('count.callback', model, results);
+    }).asCallback(callback);
   };
 
 
@@ -96,7 +99,9 @@ ORM = (function(superClass) {
     collection = this.collection(model);
     return collection.insert(data, {
       safe: true
-    }, callback);
+    }).tap(function(results) {
+      return debug('create.callback', model, results);
+    }).asCallback(callback);
   };
 
 
@@ -116,7 +121,9 @@ ORM = (function(superClass) {
     collection = this.collection(model);
     return collection.remove({
       _id: id
-    }, true, callback);
+    }, true).tap(function(results) {
+      return debug('delete.callback', model, results);
+    }).asCallback(callback);
   };
 
 
@@ -141,7 +148,7 @@ ORM = (function(superClass) {
     ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
     where = filter.where, fields = filter.fields;
     return collection.remove(where, options, function(err, results) {
-      var resultsArray;
+      var result, resultsArray;
       if (err) {
         return callback(err);
       }
@@ -157,7 +164,9 @@ ORM = (function(superClass) {
           id: result
         });
       });
-      return callback(null, rewriteIds(resultArray, properties));
+      result = rewriteIds(resultArray, properties);
+      debug('destroyAll.callback', result);
+      return callback(null, result);
     });
   };
 
@@ -179,7 +188,9 @@ ORM = (function(superClass) {
     collection = this.collection(model);
     return collection.findOne({
       _id: id
-    }, options, callback);
+    }, options).tap(function(results) {
+      return debug('findOne.callback', model, results);
+    }).asCallback(callback);
   };
 
 
@@ -328,7 +339,9 @@ ORM = (function(superClass) {
     properties = this.properties(model);
     ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
     where = filter.where;
-    return collection.update(where, data, options, callback);
+    return collection.update(where, data, options).tap(function(results) {
+      return debug('update.callback', model, results);
+    }).asCallback(callback);
   };
 
   ORM.prototype.updateAll = ORM.update;

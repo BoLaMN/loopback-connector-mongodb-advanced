@@ -1,8 +1,12 @@
-var Bulk, Collection, Cursor, ObjectID, extend, isBoolean, isFunction, noop, ref, writeOpts;
+var Bulk, Collection, Cursor, ObjectID, debug, extend, isBoolean, isFunction, noop, ref, rewriteIds, writeOpts;
+
+debug = require('debug')('loopback:connector:mongodb-advanced');
 
 Cursor = require('./cursor');
 
 Bulk = require('./bulk');
+
+rewriteIds = require('./utils').rewriteIds;
 
 ObjectID = require('mongodb').ObjectID;
 
@@ -108,9 +112,11 @@ Collection = (function() {
       if (err) {
         return callback(err);
       }
-      return callback(null, docOrDocs);
+      return callback(null, docs);
     };
-    return this.collection.insert(docs, extend(writeOpts, opts)).asCallback(done);
+    return this.collection.insert(docs, extend(writeOpts, opts)).then(function(results) {
+      return rewriteIds(results.ops);
+    }).asCallback(done);
   };
 
   Collection.prototype.update = function(query, update, opts, callback) {

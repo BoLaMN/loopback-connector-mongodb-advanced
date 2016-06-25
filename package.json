@@ -1,6 +1,6 @@
 {
   "name": "loopback-connector-mongodb-advanced",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "description": "loopback-connector-mongodb-advanced",
   "main": "dist/index.js",
   "scripts": {

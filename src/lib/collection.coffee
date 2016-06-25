@@ -1,6 +1,9 @@
+debug = require('debug')('loopback:connector:mongodb-advanced')
+
 Cursor = require './cursor'
 Bulk = require './bulk'
 
+{ rewriteIds } = require './utils'
 { ObjectID } = require 'mongodb'
 { extend, isFunction, isBoolean } = require 'lodash'
 
@@ -74,7 +77,6 @@ class Collection
     @execute 'distinct', params
       .asCallback done
 
-
   insert: (docOrDocs, opts, callback) ->
     if not opts and not callback
       return @insert docOrDocs, {}, noop
@@ -97,9 +99,11 @@ class Collection
       if err
         return callback err
 
-      callback null, docOrDocs
+      callback null, docs
 
     @collection.insert docs, extend(writeOpts, opts)
+      .then (results) ->
+        rewriteIds results.ops
       .asCallback done
 
   update: (query, update, opts, callback) ->
