@@ -1,8 +1,10 @@
-var Cursor, Readable,
+var Cursor, Promise, Readable,
   extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   hasProp = {}.hasOwnProperty;
 
 Readable = require('readable-stream').Readable;
+
+Promise = require('bluebird');
 
 Cursor = (function(superClass) {
   extend(Cursor, superClass);
@@ -19,7 +21,7 @@ Cursor = (function(superClass) {
     if (this.cursor.cursorState.dead || this.cursor.cursorState.killed) {
       return callback(null, null);
     } else {
-      this.cursor.next(callback);
+      this.cursor.next().asCallback(callback);
     }
     return this;
   };
@@ -30,20 +32,25 @@ Cursor = (function(superClass) {
   };
 
   Cursor.prototype.toArray = function(callback) {
-    var array, iterate;
-    array = [];
-    iterate = (function(_this) {
-      return function() {
-        return _this.next(function(err, obj) {
-          if (err || !obj) {
-            return callback(err, array);
-          }
-          array.push(obj);
-          return iterate();
-        });
-      };
-    })(this);
-    return iterate();
+    return new Promise(function(resolve, reject) {
+      var array, iterate;
+      array = [];
+      iterate = (function(_this) {
+        return function() {
+          return _this.next(function(err, obj) {
+            if (err) {
+              return reject(err);
+            }
+            if (!obj) {
+              return resolve(array);
+            }
+            array.push(obj);
+            return iterate();
+          });
+        };
+      })(this);
+      return iterate();
+    });
   };
 
   Cursor.prototype.map = function(mapfn, callback) {

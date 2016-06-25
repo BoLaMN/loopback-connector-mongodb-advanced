@@ -5,13 +5,16 @@ debug = require('debug')('loopback:connector:mongodb-advanced')
 
 ORM = require './orm'
 Collection = require './collection'
+Promise = require 'bluebird'
 
 class MongoDB extends ORM
   constructor: (@url, @dataSource) ->
     super()
 
     @name = 'mongodb-advanced'
+
     @settings = @dataSource.settings or {}
+    @settings.promiseLibrary = require 'bluebird'
 
     debug 'Settings: %j', @settings
 
@@ -29,10 +32,12 @@ class MongoDB extends ORM
     modelClass.settings[@name]?.collection or model
 
   connect: (callback) ->
-    MongoClient.connect @url, @settings, (err, db) =>
-      @db = db
-
-      callback err, db
+    Promise.bind @
+      .then ->
+        MongoClient.connect @url, @settings
+      .then (db) ->
+        @db = db
+      .asCallback callback
 
   disconnect: (callback) ->
     debug 'disconnect'

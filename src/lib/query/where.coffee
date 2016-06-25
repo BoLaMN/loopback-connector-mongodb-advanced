@@ -30,11 +30,11 @@ class Where
       keys = Object.keys conditions
 
       keys.forEach (key) =>
-        @where key, conditions[key]
+        @parse key, conditions[key]
 
     if isString conditions
       if isUndefined value
-        @lastKey = key
+        @lastKey = conditions
         return this
 
       if isRegExp value
@@ -43,7 +43,7 @@ class Where
       if isArray value
         value = $in: value
 
-      @query[key] = value
+      @query[conditions] = value
 
     this
 

@@ -5,7 +5,7 @@ debug = require('debug')('loopback:connector:mongodb-advanced')
 Aggregate = require './aggregate'
 Where = require './where'
 
-{ isObject, isString
+{ isObject, isString, isFunction
   isArray, isPlainObject, extend } = require 'lodash'
 { ObjectId } = require 'mongodb'
 
@@ -19,9 +19,10 @@ class Query
     @options = sort: {}
 
     for own key, value of filter
-      console.log key, value
-      @[key] value
-
+      if isFunction @[key]
+        @[key] value
+      else
+        debug 'query filter ' + key + ' not found, value: ', value
   ###*
   # set where query
   #
@@ -117,6 +118,16 @@ class Query
     @options.skip = skip
 
     this
+
+  ###*
+  # Alias for skip
+  #
+  # @param {String} offset
+  # @api public
+  ###
+
+  offset: (offset) ->
+    @skip offset
 
   ###*
   # Search using text index

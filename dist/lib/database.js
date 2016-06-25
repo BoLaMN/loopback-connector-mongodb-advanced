@@ -1,4 +1,4 @@
-var Collection, MongoClient, MongoDB, ORM, debug, isFunction, isString, ref,
+var Collection, MongoClient, MongoDB, ORM, Promise, debug, isFunction, isString, ref,
   extend1 = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   hasProp = {}.hasOwnProperty,
   slice = [].slice;
@@ -13,6 +13,8 @@ ORM = require('./orm');
 
 Collection = require('./collection');
 
+Promise = require('bluebird');
+
 MongoDB = (function(superClass) {
   extend1(MongoDB, superClass);
 
@@ -22,6 +24,7 @@ MongoDB = (function(superClass) {
     MongoDB.__super__.constructor.call(this);
     this.name = 'mongodb-advanced';
     this.settings = this.dataSource.settings || {};
+    this.settings.promiseLibrary = require('bluebird');
     debug('Settings: %j', this.settings);
   }
 
@@ -44,12 +47,11 @@ MongoDB = (function(superClass) {
   };
 
   MongoDB.prototype.connect = function(callback) {
-    return MongoClient.connect(this.url, this.settings, (function(_this) {
-      return function(err, db) {
-        _this.db = db;
-        return callback(err, db);
-      };
-    })(this));
+    return Promise.bind(this).then(function() {
+      return MongoClient.connect(this.url, this.settings);
+    }).then(function(db) {
+      return this.db = db;
+    }).asCallback(callback);
   };
 
   MongoDB.prototype.disconnect = function(callback) {

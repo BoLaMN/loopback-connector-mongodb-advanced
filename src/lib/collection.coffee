@@ -26,7 +26,7 @@ class Collection
     cursor = new Cursor @collection.find(query, projection, opts)
 
     if callback
-      return cursor.toArray callback
+      return cursor.toArray().asCallback callback
 
     cursor
 
@@ -37,31 +37,43 @@ class Collection
     if isFunction projection
       return @findOne query, null, projection
 
-    @find(query, projection).next callback
+    @find query, projection
+      .next()
+      .asCallback callback
 
   findAndModify: (opts, callback) ->
-    @execute 'findAndModify', opts, (err, result) ->
+
+    done = (err, result) ->
       if err
         return callback err
 
       callback null, result.value, result.lastErrorObject or n: 0
 
+    @execute 'findAndModify', opts
+      .asCallback done
+
   count: (query, callback) ->
     if isFunction query
       return @count {}, query
 
-    @find(query).count callback
+    @find query
+      .count()
+      .asCallback callback
 
   distinct: (field, query, callback) ->
     params =
       key: field
       query: query
 
-    @execute 'distinct', params, (err, result) ->
+    done = (err, result) ->
       if err
         return callback err
 
       callback null, result.values
+
+    @execute 'distinct', params
+      .asCallback done
+
 
   insert: (docOrDocs, opts, callback) ->
     if not opts and not callback
@@ -81,11 +93,14 @@ class Collection
         docs[i]._id = ObjectID.createPk()
       i++
 
-    @collection.insert docs, extend(writeOpts, opts), (err) ->
+    done = (err) ->
       if err
         return callback err
 
       callback null, docOrDocs
+
+    @collection.insert docs, extend(writeOpts, opts)
+      .asCallback done
 
   update: (query, update, opts, callback) ->
     if not opts and not callback
@@ -94,11 +109,14 @@ class Collection
     if isFunction opts
       return @update query, update, {}, opts
 
-    @collection.update query, update, extend(writeOpts, opts), (err, result) ->
+    done = (err, result) ->
       if err
         return callback err
 
       callback null, result.result
+
+    @collection.update query, update, extend(writeOpts, opts)
+      .asCallback done
 
   save: (doc, opts, callback) ->
     if not opts and not callback
@@ -111,9 +129,11 @@ class Collection
       return @save doc, opts, noop
 
     if doc._id
-      @update { _id: doc._id }, doc, extend({ upsert: true }, opts), callback
+      @update { _id: doc._id }, doc, extend({ upsert: true }, opts)
+        .asCallback callback
     else
-      @insert doc, opts, callback
+      @insert doc, opts
+        .asCallback callback
 
   remove: (query, opts, callback) ->
     if isFunction query
@@ -133,13 +153,14 @@ class Collection
 
     deleteOperation = if opts.justOne then 'deleteOne' else 'deleteMany'
 
-    finish = (err, result) ->
+    done = (err, result) ->
       if err
         return callback err
 
       callback null, result.result
 
-    @collection[deleteOperation] query, extend(opts, writeOpts), finish
+    @collection[deleteOperation] query, extend(opts, writeOpts)
+      .asCallback done
 
   rename: (name, opts, callback) ->
     if isFunction opts
@@ -151,13 +172,16 @@ class Collection
     if not callback
       return @rename name, noop
 
-    @collection.rename name, opts, callback
+    @collection.rename name, opts
+      .asCallback callback
 
   drop: (callback) ->
-    @execute 'drop', callback
+    @execute 'drop'
+      .asCallback callback
 
   stats: (callback) ->
-    @execute 'collStats', callback
+    @execute 'collStats'
+      .asCallback callback
 
   mapReduce: (map, reduce, opts, callback) ->
     if isFunction opts
@@ -166,7 +190,8 @@ class Collection
     if not callback
       return @mapReduce map, reduce, opts, noop
 
-    @collection.mapReduce map, reduce, opts, callback
+    @collection.mapReduce map, reduce, opts
+      .asCallback callback
 
   execute: (cmd, opts, callback) ->
     if isFunction opts
@@ -181,16 +206,19 @@ class Collection
       obj[key] = opts[key]
       return
 
-    @collection.s.db.command obj, callback
+    @collection.s.db.command obj
+      .asCallback callback
 
   toString: ->
     @collection.s.name
 
   dropIndexes: (callback) ->
-    @execute 'dropIndexes', { index: '*' }, callback
+    @execute 'dropIndexes', index: '*'
+      .asCallback callback
 
   dropIndex: (index, callback) ->
-    @execute 'dropIndexes', { index: index }, callback
+    @execute 'dropIndexes', index: index
+      .asCallback callback
 
   createIndex: (index, opts, callback) ->
     if isFunction opts
@@ -202,7 +230,8 @@ class Collection
     if not callback
       return @createIndex index, opts, noop
 
-    @collection.createIndex index, opts, callback
+    @collection.createIndex index, opts
+      .asCallback callback
 
   ensureIndex: (index, opts, callback) ->
     if isFunction opts
@@ -214,25 +243,32 @@ class Collection
     if not callback
       return @ensureIndex index, opts, noop
 
-    @collection.ensureIndex index, opts, callback
+    @collection.ensureIndex index, opts
+      .asCallback callback
 
   getIndexes: (callback) ->
-    @collection.indexes callback
+    @collection.indexes()
+      .asCallback callback
 
   reIndex: (callback) ->
-    @execute 'reIndex', callback
+    @execute 'reIndex'
+      .asCallback callback
 
   isCapped: (callback) ->
-    @collection.isCapped callback
+    @collection.isCapped()
+      .asCallback callback
 
   group: (doc, callback) ->
-    @collection.group doc.key or doc.keyf, doc.cond, doc.initial, doc.reduce, doc.finalize, callback
+    key = doc.key or doc.keyf
+
+    @collection.group key, doc.cond, doc.initial, doc.reduce, doc.finalize
+      .asCallback callback
 
   aggregate: (pipeline, opts, callback) ->
     strm = new Cursor @collection.aggregate pipeline, opts
 
     if callback
-      return strm.toArray callback
+      return strm.toArray().asCallback callback
 
     strm
 

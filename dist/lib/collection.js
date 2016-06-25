@@ -35,7 +35,7 @@ Collection = (function() {
     }
     cursor = new Cursor(this.collection.find(query, projection, opts));
     if (callback) {
-      return cursor.toArray(callback);
+      return cursor.toArray().asCallback(callback);
     }
     return cursor;
   };
@@ -47,43 +47,46 @@ Collection = (function() {
     if (isFunction(projection)) {
       return this.findOne(query, null, projection);
     }
-    return this.find(query, projection).next(callback);
+    return this.find(query, projection).next().asCallback(callback);
   };
 
   Collection.prototype.findAndModify = function(opts, callback) {
-    return this.execute('findAndModify', opts, function(err, result) {
+    var done;
+    done = function(err, result) {
       if (err) {
         return callback(err);
       }
       return callback(null, result.value, result.lastErrorObject || {
         n: 0
       });
-    });
+    };
+    return this.execute('findAndModify', opts).asCallback(done);
   };
 
   Collection.prototype.count = function(query, callback) {
     if (isFunction(query)) {
       return this.count({}, query);
     }
-    return this.find(query).count(callback);
+    return this.find(query).count().asCallback(callback);
   };
 
   Collection.prototype.distinct = function(field, query, callback) {
-    var params;
+    var done, params;
     params = {
       key: field,
       query: query
     };
-    return this.execute('distinct', params, function(err, result) {
+    done = function(err, result) {
       if (err) {
         return callback(err);
       }
       return callback(null, result.values);
-    });
+    };
+    return this.execute('distinct', params).asCallback(done);
   };
 
   Collection.prototype.insert = function(docOrDocs, opts, callback) {
-    var docs, i;
+    var docs, done, i;
     if (!opts && !callback) {
       return this.insert(docOrDocs, {}, noop);
     }
@@ -101,27 +104,30 @@ Collection = (function() {
       }
       i++;
     }
-    return this.collection.insert(docs, extend(writeOpts, opts), function(err) {
+    done = function(err) {
       if (err) {
         return callback(err);
       }
       return callback(null, docOrDocs);
-    });
+    };
+    return this.collection.insert(docs, extend(writeOpts, opts)).asCallback(done);
   };
 
   Collection.prototype.update = function(query, update, opts, callback) {
+    var done;
     if (!opts && !callback) {
       return this.update(query, update, {}, noop);
     }
     if (isFunction(opts)) {
       return this.update(query, update, {}, opts);
     }
-    return this.collection.update(query, update, extend(writeOpts, opts), function(err, result) {
+    done = function(err, result) {
       if (err) {
         return callback(err);
       }
       return callback(null, result.result);
-    });
+    };
+    return this.collection.update(query, update, extend(writeOpts, opts)).asCallback(done);
   };
 
   Collection.prototype.save = function(doc, opts, callback) {
@@ -139,14 +145,14 @@ Collection = (function() {
         _id: doc._id
       }, doc, extend({
         upsert: true
-      }, opts), callback);
+      }, opts)).asCallback(callback);
     } else {
-      return this.insert(doc, opts, callback);
+      return this.insert(doc, opts).asCallback(callback);
     }
   };
 
   Collection.prototype.remove = function(query, opts, callback) {
-    var deleteOperation, finish;
+    var deleteOperation, done;
     if (isFunction(query)) {
       return this.remove({}, {
         justOne: false
@@ -171,13 +177,13 @@ Collection = (function() {
       return this.remove(query, opts, noop);
     }
     deleteOperation = opts.justOne ? 'deleteOne' : 'deleteMany';
-    finish = function(err, result) {
+    done = function(err, result) {
       if (err) {
         return callback(err);
       }
       return callback(null, result.result);
     };
-    return this.collection[deleteOperation](query, extend(opts, writeOpts), finish);
+    return this.collection[deleteOperation](query, extend(opts, writeOpts)).asCallback(done);
   };
 
   Collection.prototype.rename = function(name, opts, callback) {
@@ -190,15 +196,15 @@ Collection = (function() {
     if (!callback) {
       return this.rename(name, noop);
     }
-    return this.collection.rename(name, opts, callback);
+    return this.collection.rename(name, opts).asCallback(callback);
   };
 
   Collection.prototype.drop = function(callback) {
-    return this.execute('drop', callback);
+    return this.execute('drop').asCallback(callback);
   };
 
   Collection.prototype.stats = function(callback) {
-    return this.execute('collStats', callback);
+    return this.execute('collStats').asCallback(callback);
   };
 
   Collection.prototype.mapReduce = function(map, reduce, opts, callback) {
@@ -208,7 +214,7 @@ Collection = (function() {
     if (!callback) {
       return this.mapReduce(map, reduce, opts, noop);
     }
-    return this.collection.mapReduce(map, reduce, opts, callback);
+    return this.collection.mapReduce(map, reduce, opts).asCallback(callback);
   };
 
   Collection.prototype.execute = function(cmd, opts, callback) {
@@ -222,7 +228,7 @@ Collection = (function() {
     Object.keys(opts).forEach(function(key) {
       obj[key] = opts[key];
     });
-    return this.collection.s.db.command(obj, callback);
+    return this.collection.s.db.command(obj).asCallback(callback);
   };
 
   Collection.prototype.toString = function() {
@@ -232,13 +238,13 @@ Collection = (function() {
   Collection.prototype.dropIndexes = function(callback) {
     return this.execute('dropIndexes', {
       index: '*'
-    }, callback);
+    }).asCallback(callback);
   };
 
   Collection.prototype.dropIndex = function(index, callback) {
     return this.execute('dropIndexes', {
       index: index
-    }, callback);
+    }).asCallback(callback);
   };
 
   Collection.prototype.createIndex = function(index, opts, callback) {
@@ -251,7 +257,7 @@ Collection = (function() {
     if (!callback) {
       return this.createIndex(index, opts, noop);
     }
-    return this.collection.createIndex(index, opts, callback);
+    return this.collection.createIndex(index, opts).asCallback(callback);
   };
 
   Collection.prototype.ensureIndex = function(index, opts, callback) {
@@ -264,30 +270,32 @@ Collection = (function() {
     if (!callback) {
       return this.ensureIndex(index, opts, noop);
     }
-    return this.collection.ensureIndex(index, opts, callback);
+    return this.collection.ensureIndex(index, opts).asCallback(callback);
   };
 
   Collection.prototype.getIndexes = function(callback) {
-    return this.collection.indexes(callback);
+    return this.collection.indexes().asCallback(callback);
   };
 
   Collection.prototype.reIndex = function(callback) {
-    return this.execute('reIndex', callback);
+    return this.execute('reIndex').asCallback(callback);
   };
 
   Collection.prototype.isCapped = function(callback) {
-    return this.collection.isCapped(callback);
+    return this.collection.isCapped().asCallback(callback);
   };
 
   Collection.prototype.group = function(doc, callback) {
-    return this.collection.group(doc.key || doc.keyf, doc.cond, doc.initial, doc.reduce, doc.finalize, callback);
+    var key;
+    key = doc.key || doc.keyf;
+    return this.collection.group(key, doc.cond, doc.initial, doc.reduce, doc.finalize).asCallback(callback);
   };
 
   Collection.prototype.aggregate = function(pipeline, opts, callback) {
     var strm;
     strm = new Cursor(this.collection.aggregate(pipeline, opts));
     if (callback) {
-      return strm.toArray(callback);
+      return strm.toArray().asCallback(callback);
     }
     return strm;
   };

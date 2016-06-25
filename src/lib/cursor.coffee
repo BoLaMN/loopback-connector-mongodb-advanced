@@ -1,5 +1,7 @@
 { Readable } = require 'readable-stream'
 
+Promise = require 'bluebird'
+
 class Cursor extends Readable
   constructor: (@cursor) ->
     super
@@ -10,7 +12,8 @@ class Cursor extends Readable
     if @cursor.cursorState.dead or @cursor.cursorState.killed
       return callback null, null
     else
-      @cursor.next callback
+      @cursor.next()
+        .asCallback callback
     this
 
   rewind: (callback) ->
@@ -18,16 +21,19 @@ class Cursor extends Readable
     this
 
   toArray: (callback) ->
-    array = []
+    new Promise (resolve, reject) ->
+      array = []
 
-    iterate = =>
-      @next (err, obj) ->
-        if err or not obj
-          return callback err, array
-        array.push obj
-        iterate()
+      iterate = =>
+        @next (err, obj) ->
+          if err
+            return reject err
+          if not obj
+            return resolve array
+          array.push obj
+          iterate()
 
-    iterate()
+      iterate()
 
   map: (mapfn, callback) ->
     array = []

@@ -1,8 +1,8 @@
-var Binary, ObjectId, isString, ref;
+var Binary, ObjectId, isArray, isString, ref, ref1;
 
-isString = require('lodash').isString;
+ref = require('lodash'), isString = ref.isString, isArray = ref.isArray;
 
-ref = require('mongodb'), ObjectId = ref.ObjectId, Binary = ref.Binary;
+ref1 = require('mongodb'), ObjectId = ref1.ObjectId, Binary = ref1.Binary;
 
 exports.rewriteId = function(model, schema) {
   if (model == null) {
@@ -30,9 +30,11 @@ exports.rewriteId = function(model, schema) {
 };
 
 exports.rewriteIds = function(models, schema) {
-  return models.map(function(model) {
-    return exports.rewriteId(model, schema);
-  });
+  if (isArray(models)) {
+    return models.map(function(model) {
+      return exports.rewriteId(model, schema);
+    });
+  }
 };
 
 exports.normalizeId = function(value) {
@@ -80,8 +82,8 @@ exports.normalizeResults = function(models, schema) {
   return models.map(function(model) {
     model = exports.rewriteIds(model, schema);
     Object.keys(model).forEach(function(key) {
-      var ref1;
-      if (model[key] instanceof Binary && ((ref1 = model[key]) != null ? ref1.buffer : void 0)) {
+      var ref2;
+      if (model[key] instanceof Binary && ((ref2 = model[key]) != null ? ref2.buffer : void 0)) {
         return model[key] = model[key].buffer;
       }
     });

@@ -27,35 +27,29 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.all = function(model, filter, options, callback) {
-    var aggregate, collection, err, finish, properties, query, where;
+    var aggregate, collection, fields, finish, properties, ref, where;
     if (options == null) {
       options = {};
     }
     debug('all', model, filter);
     collection = this.collection(model);
     properties = this.properties(model);
-    try {
-      query = new Query(filter, properties);
-    } catch (_error) {
-      err = _error;
-      return callback(err);
-    }
-    where = query.filter.where || {};
+    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
     finish = function(err, results) {
       return callback(err, rewriteIds(results, properties));
     };
-    if (query.aggregate) {
+    if (aggregate) {
       aggregate = [
         {
           '$match': where
         }, {
-          '$group': query.aggregateGroup
+          '$group': filter.aggregateGroup
         }
       ];
       return collection.aggregate(aggregate, finish);
     } else {
-      delete query.filter.where;
-      return collection.find(where, query.fields, query, finish);
+      return collection.find(where, fields, options, finish);
     }
   };
 
@@ -70,7 +64,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.count = function(model, filter, options, callback) {
-    var collection, err, properties, query, where;
+    var collection, properties, ref, where;
     if (options == null) {
       options = {};
     }
@@ -80,13 +74,8 @@ ORM = (function(superClass) {
     }
     collection = this.collection(model);
     properties = this.properties(model);
-    try {
-      query = new Query(filter, properties);
-    } catch (_error) {
-      err = _error;
-      return callback(err);
-    }
-    where = query.filter.where || {};
+    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    where = filter.where;
     return collection.count(where, callback);
   };
 
@@ -139,7 +128,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.destroyAll = function(model, filter, options, callback) {
-    var collection, err, properties, query, where;
+    var collection, fields, properties, ref, where;
     if (options == null) {
       options = {};
     }
@@ -149,13 +138,8 @@ ORM = (function(superClass) {
     }
     collection = this.collection(model);
     properties = this.properties(model);
-    try {
-      query = new Query(filter, properties);
-    } catch (_error) {
-      err = _error;
-      return callback(err);
-    }
-    where = query.filter.where || {};
+    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    where = filter.where, fields = filter.fields;
     return collection.remove(where, options, function(err, results) {
       var resultsArray;
       if (err) {
@@ -332,7 +316,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.update = function(model, filter, data, options, callback) {
-    var collection, err, properties, query, where;
+    var collection, properties, ref, where;
     if (options == null) {
       options = {};
     }
@@ -342,13 +326,8 @@ ORM = (function(superClass) {
     }
     collection = this.collection(model);
     properties = this.properties(model);
-    try {
-      query = new Query(filter, properties);
-    } catch (_error) {
-      err = _error;
-      return callback(err);
-    }
-    where = query.filter.where || {};
+    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    where = filter.where;
     return collection.update(where, data, options, callback);
   };
 
