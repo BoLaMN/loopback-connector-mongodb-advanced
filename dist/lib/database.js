@@ -89,7 +89,11 @@ MongoDB = (function(superClass) {
   };
 
   MongoDB.prototype.properties = function(model) {
-    return this._models[model].properties;
+    return this.model(model).properties;
+  };
+
+  MongoDB.prototype.model = function(name) {
+    return this._models[name];
   };
 
   MongoDB.prototype.getCollectionNames = function(callback) {

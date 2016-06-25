@@ -13,18 +13,20 @@ class ORM extends Connector
   # @param {Object} filter The filter
   # @param {Function} [callback] The callback function
   ###
-  all: (model, filter, options = {}, callback) ->
-    debug 'all', model, filter
+  all: (modelName, filter, options = {}, callback) ->
+    debug 'all', modelName, filter
 
-    collection = @collection model
-    properties = @properties model
+    collection = @collection modelName
+    model = @model modelName
 
-    { filter, options } = new Query filter, properties
+    { filter, options } = new Query filter, model.model
     { where, aggregate, fields } = filter
 
+    debug filter.lookups
+
     finish = (err, results) ->
-      debug 'all.callback', model, results
-      callback err, rewriteIds results, properties
+      debug 'all.callback', modelName, results
+      callback err, rewriteIds results
 
     if aggregate
       aggregate = [
@@ -44,21 +46,21 @@ class ORM extends Connector
   # @param {Object} filter The filter for where
   #
   ###
-  count: (model, filter, options = {}, callback) ->
-    debug 'count', model, filter
+  count: (modelName, filter, options = {}, callback) ->
+    debug 'count', modelName, filter
 
     if typeof filter == 'object'
       delete filter.fields
 
-    collection = @collection model
-    properties = @properties model
+    collection = @collection modelName
+    model = @model modelName
 
-    { filter, options } = new Query filter, properties
+    { filter, options } = new Query filter, model
     { where } = filter
 
     collection.count where
       .tap (results) ->
-        debug 'count.callback', model, results
+        debug 'count.callback', modelName, results
       .asCallback callback
 
   ###*
@@ -67,14 +69,14 @@ class ORM extends Connector
   # @param {Object} data The model data
   # @param {Function} [callback] The callback function
   ###
-  create: (model, data, options = {}, callback) ->
-    debug 'create', model, data
+  create: (modelName, data, options = {}, callback) ->
+    debug 'create', modelName, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     collection.insert data, safe: true
       .tap (results) ->
-        debug 'create.callback', model, results
+        debug 'create.callback', modelName, results
       .asCallback callback
 
   ###*
@@ -83,14 +85,14 @@ class ORM extends Connector
   # @param {*} id The id value
   # @param [callback] The callback function
   ###
-  destroy: (model, id, options = {}, callback) ->
-    debug 'delete', model, id
+  destroy: (modelName, id, options = {}, callback) ->
+    debug 'delete', modelName, id
 
-    collection = @collection model
+    collection = @collection modelName
 
     collection.remove _id: id, true
       .tap (results) ->
-        debug 'delete.callback', model, results
+        debug 'delete.callback', modelName, results
       .asCallback callback
 
   ###*
@@ -99,16 +101,16 @@ class ORM extends Connector
   # @param {Object} [where] The filter for where
   # @param {Function} [callback] The callback function
   ###
-  destroyAll: (model, filter, options = {}, callback) ->
-    debug 'destroyAll', model, filter
+  destroyAll: (modelName, filter, options = {}, callback) ->
+    debug 'destroyAll', modelName, filter
 
     if typeof filter is 'object'
       delete filter.fields
 
-    collection = @collection model
-    properties = @properties model
+    collection = @collection modelName
+    model = @model modelName
 
-    { filter, options } = new Query filter, properties
+    { filter, options } = new Query filter, model
     { where, fields } = filter
 
     collection.remove where, options, (err, results) ->
@@ -136,14 +138,14 @@ class ORM extends Connector
   # @param {Function} [callback] The callback function
   #
   ###
-  exists: (model, id, options = {}, callback) ->
-    debug 'exists', model, id
+  exists: (modelName, id, options = {}, callback) ->
+    debug 'exists', modelName, id
 
-    collection = @collection model
+    collection = @collection modelName
 
     collection.findOne _id: id, options
       .tap (results) ->
-        debug 'findOne.callback', model, results
+        debug 'findOne.callback', modelName, results
       .asCallback callback
 
   ###*
@@ -152,10 +154,10 @@ class ORM extends Connector
   # @param {*} id The id value
   # @param {Function} [callback] The callback function
   ###
-  find: (model, id, options = {}, callback) ->
-    debug 'find', model, id
+  find: (modelName, id, options = {}, callback) ->
+    debug 'find', modelName, id
 
-    collection = @collection model
+    collection = @collection modelName
 
     collection.findOne _id: id, options, callback
 
@@ -170,10 +172,10 @@ class ORM extends Connector
   # @param {Object} filter The filter
   # @param {Function} [callback] The callback function
   ###
-  findOrCreate: (model, filter = {}, data, callback) ->
-    debug 'findOrCreate', model, filter, data
+  findOrCreate: (modelName, filter = {}, data, callback) ->
+    debug 'findOrCreate', modelName, filter, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     callback null, {}
 
@@ -185,10 +187,10 @@ class ORM extends Connector
   # @param {Object} options The options object
   # @param {Function} [callback] The callback function
   ###
-  replaceById: (model, id, data, options = {}, callback) ->
-    debug 'replaceById', model, id, data
+  replaceById: (modelName, id, data, options = {}, callback) ->
+    debug 'replaceById', modelName, id, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     callback null, {}
 
@@ -200,10 +202,10 @@ class ORM extends Connector
   # @param {Object} options The options object
   # @param {Function} [callback] The callback function
   ###
-  replaceOrCreate: (model, data, options = {}, callback) ->
-    debug 'replaceOrCreate', model, data
+  replaceOrCreate: (modelName, data, options = {}, callback) ->
+    debug 'replaceOrCreate', modelName, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     callback null, {}
 
@@ -218,10 +220,10 @@ class ORM extends Connector
   #                 for update, e.g, {upsert: true}
   # @callback {Function} [callback] Callback function
   ###
-  replaceWithOptions: (model, id, data, options = {}, callback) ->
-    debug 'updateWithOptions', model, id, data
+  replaceWithOptions: (modelName, id, data, options = {}, callback) ->
+    debug 'updateWithOptions', modelName, id, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     callback null, {}
 
@@ -231,10 +233,10 @@ class ORM extends Connector
   # @param {Object} data The model data
   # @param {Function} [callback] The callback function
   ###
-  save: (model, data, options = {}, callback) ->
-    debug 'save', model, data
+  save: (modelName, data, options = {}, callback) ->
+    debug 'save', modelName, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     collection.save data, options, callback
 
@@ -245,21 +247,21 @@ class ORM extends Connector
   # @param {Object} data The property/value pairs to be updated
   # @callback {Function} callback Callback function
   ###
-  update: (model, filter, data, options = {}, callback) ->
-    debug 'update', model, filter, data
+  update: (modelName, filter, data, options = {}, callback) ->
+    debug 'update', modelName, filter, data
 
     if typeof filter == 'object'
       delete filter.fields
 
-    collection = @collection model
-    properties = @properties model
+    collection = @collection modelName
+    model = @model modelName
 
-    { filter, options } = new Query filter, properties
+    { filter, options } = new Query filter, model
     { where } = filter
 
     collection.update where, data, options
       .tap (results) ->
-        debug 'update.callback', model, results
+        debug 'update.callback', modelName, results
       .asCallback callback
 
   updateAll: @update
@@ -270,10 +272,10 @@ class ORM extends Connector
   # @param {Object} data The model data
   # @param {Function} [callback] The callback function
   ###
-  updateAttributes: (model, id, data, options = {}, callback) ->
-    debug 'updateAttributes', model, id, data
+  updateAttributes: (modelName, id, data, options = {}, callback) ->
+    debug 'updateAttributes', modelName, id, data
 
-    collection = @collection model
+    collection = @collection modelName
 
     callback null, {}
 

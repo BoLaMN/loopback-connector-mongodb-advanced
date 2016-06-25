@@ -43,6 +43,6 @@ exports.initialize = function(dataSource, callback) {
     return id;
   };
   connector = new MongoDB(url(dataSource), dataSource);
-  connector.connect(callback);
   dataSource.connector = connector;
+  dataSource.connector.connect(callback);
 };

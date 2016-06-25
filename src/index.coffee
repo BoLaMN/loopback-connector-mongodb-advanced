@@ -32,9 +32,9 @@ exports.initialize = (dataSource, callback) ->
     id
 
   connector = new MongoDB url(dataSource), dataSource
-  connector.connect callback
 
   dataSource.connector = connector
+  dataSource.connector.connect callback
 
   return
 

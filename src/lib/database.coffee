@@ -62,7 +62,10 @@ class MongoDB extends ORM
     @db.listCollections().toArray callback
 
   properties: (model) ->
-    @_models[model].properties
+    @model(model).properties
+
+  model: (name) ->
+    @_models[name]
 
   getCollectionNames: (callback) ->
     @listCollections (err, collections) ->

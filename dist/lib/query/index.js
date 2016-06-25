@@ -18,12 +18,13 @@ ObjectId = require('mongodb').ObjectId;
  */
 
 Query = (function() {
-  function Query(filter, properties) {
+  function Query(filter, model) {
     var key, value;
-    this.properties = properties;
+    this.model = model;
     this.filter = {
       fields: {},
-      where: {}
+      where: {},
+      lookups: []
     };
     this.options = {
       sort: {}
@@ -113,7 +114,51 @@ Query = (function() {
    */
 
   Query.prototype.include = function(includes) {
-    debug('todo, move over to $lookup');
+    var add;
+    add = function(item, fn) {
+      if (Array.isArray(item)) {
+        return item.forEach(fn);
+      } else {
+        return fn(item, true);
+      }
+    };
+    add(includes, (function(_this) {
+      return function(item, notArray) {
+        var fields, filter, keyFrom, keyTo, lookup, lookups, modelTo, multiple, name, ref1, where;
+        ref1 = _this.model.relations[item.relation || item], modelTo = ref1.modelTo, multiple = ref1.multiple, name = ref1.name, keyFrom = ref1.keyFrom, keyTo = ref1.keyTo;
+        lookup = {
+          from: modelTo.modelName,
+          localField: keyFrom,
+          foreignField: keyTo === 'id' ? '_id' : keyTo,
+          as: name
+        };
+        _this.filter.lookups.push({
+          $lookup: lookup
+        });
+        if (!multiple) {
+          _this.filter.lookups.push({
+            $unwind: '$' + name
+          });
+        }
+        if (item.scope) {
+          filter = new Query(item.scope, modelTo).filter;
+          lookups = filter.lookups, where = filter.where, fields = filter.fields;
+          if (Object.keys(where).length) {
+            _this.filter.lookups.push({
+              $match: where
+            });
+          }
+          if (Object.keys(fields).length) {
+            _this.filter.lookups.push({
+              $project: fields
+            });
+          }
+          if (lookups.length) {
+            return _this.filter.lookups = _this.filter.lookups.concat(lookups);
+          }
+        }
+      };
+    })(this));
     return this;
   };
 

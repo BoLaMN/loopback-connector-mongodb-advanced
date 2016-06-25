@@ -14,8 +14,8 @@ Where = require './where'
 ###
 
 class Query
-  constructor: (filter, @properties) ->
-    @filter = fields: {}, where: {}
+  constructor: (filter, @model) ->
+    @filter = fields: {}, where: {}, lookups: []
     @options = sort: {}
 
     for own key, value of filter
@@ -80,7 +80,39 @@ class Query
   ###
 
   include: (includes) ->
-    debug 'todo, move over to $lookup'
+
+    add = (item, fn) ->
+      if Array.isArray item
+        item.forEach fn
+      else fn item, true
+
+    add includes, (item, notArray) =>
+      { modelTo, multiple, name, keyFrom, keyTo } = @model.relations[item.relation or item]
+
+      lookup =
+        from: modelTo.modelName
+        localField: keyFrom
+        foreignField: if keyTo is 'id' then '_id' else keyTo
+        as: name
+
+      @filter.lookups.push $lookup: lookup
+
+      if not multiple
+        @filter.lookups.push $unwind: '$' + name
+
+      if item.scope
+        { filter } = new Query item.scope, modelTo
+        { lookups, where, fields } = filter
+
+        if Object.keys(where).length
+          @filter.lookups.push $match: where
+
+        if Object.keys(fields).length
+          @filter.lookups.push $project: fields
+
+        if lookups.length
+          @filter.lookups = @filter.lookups.concat lookups
+
     return this
 
   ###*

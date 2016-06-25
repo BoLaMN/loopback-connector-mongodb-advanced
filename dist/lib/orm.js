@@ -26,19 +26,20 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.all = function(model, filter, options, callback) {
-    var aggregate, collection, fields, finish, properties, ref, where;
+  ORM.prototype.all = function(modelName, filter, options, callback) {
+    var aggregate, collection, fields, finish, model, ref, where;
     if (options == null) {
       options = {};
     }
-    debug('all', model, filter);
-    collection = this.collection(model);
-    properties = this.properties(model);
-    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    debug('all', modelName, filter);
+    collection = this.collection(modelName);
+    model = this.model(modelName);
+    ref = new Query(filter, model.model), filter = ref.filter, options = ref.options;
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
+    debug(filter.lookups);
     finish = function(err, results) {
-      debug('all.callback', model, results);
-      return callback(err, rewriteIds(results, properties));
+      debug('all.callback', modelName, results);
+      return callback(err, rewriteIds(results));
     };
     if (aggregate) {
       aggregate = [
@@ -64,21 +65,21 @@ ORM = (function(superClass) {
   #
    */
 
-  ORM.prototype.count = function(model, filter, options, callback) {
-    var collection, properties, ref, where;
+  ORM.prototype.count = function(modelName, filter, options, callback) {
+    var collection, model, ref, where;
     if (options == null) {
       options = {};
     }
-    debug('count', model, filter);
+    debug('count', modelName, filter);
     if (typeof filter === 'object') {
       delete filter.fields;
     }
-    collection = this.collection(model);
-    properties = this.properties(model);
-    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    collection = this.collection(modelName);
+    model = this.model(modelName);
+    ref = new Query(filter, model), filter = ref.filter, options = ref.options;
     where = filter.where;
     return collection.count(where).tap(function(results) {
-      return debug('count.callback', model, results);
+      return debug('count.callback', modelName, results);
     }).asCallback(callback);
   };
 
@@ -90,17 +91,17 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.create = function(model, data, options, callback) {
+  ORM.prototype.create = function(modelName, data, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('create', model, data);
-    collection = this.collection(model);
+    debug('create', modelName, data);
+    collection = this.collection(modelName);
     return collection.insert(data, {
       safe: true
     }).tap(function(results) {
-      return debug('create.callback', model, results);
+      return debug('create.callback', modelName, results);
     }).asCallback(callback);
   };
 
@@ -112,17 +113,17 @@ ORM = (function(superClass) {
    * @param [callback] The callback function
    */
 
-  ORM.prototype.destroy = function(model, id, options, callback) {
+  ORM.prototype.destroy = function(modelName, id, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('delete', model, id);
-    collection = this.collection(model);
+    debug('delete', modelName, id);
+    collection = this.collection(modelName);
     return collection.remove({
       _id: id
     }, true).tap(function(results) {
-      return debug('delete.callback', model, results);
+      return debug('delete.callback', modelName, results);
     }).asCallback(callback);
   };
 
@@ -134,18 +135,18 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.destroyAll = function(model, filter, options, callback) {
-    var collection, fields, properties, ref, where;
+  ORM.prototype.destroyAll = function(modelName, filter, options, callback) {
+    var collection, fields, model, ref, where;
     if (options == null) {
       options = {};
     }
-    debug('destroyAll', model, filter);
+    debug('destroyAll', modelName, filter);
     if (typeof filter === 'object') {
       delete filter.fields;
     }
-    collection = this.collection(model);
-    properties = this.properties(model);
-    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    collection = this.collection(modelName);
+    model = this.model(modelName);
+    ref = new Query(filter, model), filter = ref.filter, options = ref.options;
     where = filter.where, fields = filter.fields;
     return collection.remove(where, options, function(err, results) {
       var result, resultsArray;
@@ -179,17 +180,17 @@ ORM = (function(superClass) {
   #
    */
 
-  ORM.prototype.exists = function(model, id, options, callback) {
+  ORM.prototype.exists = function(modelName, id, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('exists', model, id);
-    collection = this.collection(model);
+    debug('exists', modelName, id);
+    collection = this.collection(modelName);
     return collection.findOne({
       _id: id
     }, options).tap(function(results) {
-      return debug('findOne.callback', model, results);
+      return debug('findOne.callback', modelName, results);
     }).asCallback(callback);
   };
 
@@ -201,13 +202,13 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.find = function(model, id, options, callback) {
+  ORM.prototype.find = function(modelName, id, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('find', model, id);
-    collection = this.collection(model);
+    debug('find', modelName, id);
+    collection = this.collection(modelName);
     return collection.findOne({
       _id: id
     }, options, callback);
@@ -226,13 +227,13 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.findOrCreate = function(model, filter, data, callback) {
+  ORM.prototype.findOrCreate = function(modelName, filter, data, callback) {
     var collection;
     if (filter == null) {
       filter = {};
     }
-    debug('findOrCreate', model, filter, data);
-    collection = this.collection(model);
+    debug('findOrCreate', modelName, filter, data);
+    collection = this.collection(modelName);
     return callback(null, {});
   };
 
@@ -246,13 +247,13 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.replaceById = function(model, id, data, options, callback) {
+  ORM.prototype.replaceById = function(modelName, id, data, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('replaceById', model, id, data);
-    collection = this.collection(model);
+    debug('replaceById', modelName, id, data);
+    collection = this.collection(modelName);
     return callback(null, {});
   };
 
@@ -266,13 +267,13 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.replaceOrCreate = function(model, data, options, callback) {
+  ORM.prototype.replaceOrCreate = function(modelName, data, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('replaceOrCreate', model, data);
-    collection = this.collection(model);
+    debug('replaceOrCreate', modelName, data);
+    collection = this.collection(modelName);
     return callback(null, {});
   };
 
@@ -289,13 +290,13 @@ ORM = (function(superClass) {
    * @callback {Function} [callback] Callback function
    */
 
-  ORM.prototype.replaceWithOptions = function(model, id, data, options, callback) {
+  ORM.prototype.replaceWithOptions = function(modelName, id, data, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('updateWithOptions', model, id, data);
-    collection = this.collection(model);
+    debug('updateWithOptions', modelName, id, data);
+    collection = this.collection(modelName);
     return callback(null, {});
   };
 
@@ -307,13 +308,13 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.save = function(model, data, options, callback) {
+  ORM.prototype.save = function(modelName, data, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('save', model, data);
-    collection = this.collection(model);
+    debug('save', modelName, data);
+    collection = this.collection(modelName);
     return collection.save(data, options, callback);
   };
 
@@ -326,21 +327,21 @@ ORM = (function(superClass) {
    * @callback {Function} callback Callback function
    */
 
-  ORM.prototype.update = function(model, filter, data, options, callback) {
-    var collection, properties, ref, where;
+  ORM.prototype.update = function(modelName, filter, data, options, callback) {
+    var collection, model, ref, where;
     if (options == null) {
       options = {};
     }
-    debug('update', model, filter, data);
+    debug('update', modelName, filter, data);
     if (typeof filter === 'object') {
       delete filter.fields;
     }
-    collection = this.collection(model);
-    properties = this.properties(model);
-    ref = new Query(filter, properties), filter = ref.filter, options = ref.options;
+    collection = this.collection(modelName);
+    model = this.model(modelName);
+    ref = new Query(filter, model), filter = ref.filter, options = ref.options;
     where = filter.where;
     return collection.update(where, data, options).tap(function(results) {
-      return debug('update.callback', model, results);
+      return debug('update.callback', modelName, results);
     }).asCallback(callback);
   };
 
@@ -354,13 +355,13 @@ ORM = (function(superClass) {
    * @param {Function} [callback] The callback function
    */
 
-  ORM.prototype.updateAttributes = function(model, id, data, options, callback) {
+  ORM.prototype.updateAttributes = function(modelName, id, data, options, callback) {
     var collection;
     if (options == null) {
       options = {};
     }
-    debug('updateAttributes', model, id, data);
-    collection = this.collection(model);
+    debug('updateAttributes', modelName, id, data);
+    collection = this.collection(modelName);
     return callback(null, {});
   };
 
