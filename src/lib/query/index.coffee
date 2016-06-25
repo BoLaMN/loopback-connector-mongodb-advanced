@@ -86,13 +86,18 @@ class Query
         item.forEach fn
       else fn item, true
 
+    normId = (id) ->
+      if id is 'id'
+        '_id'
+      else keyTo
+
     add includes, (item, notArray) =>
       { modelTo, multiple, name, keyFrom, keyTo } = @model.relations[item.relation or item]
 
       lookup =
         from: modelTo.modelName
-        localField: keyFrom
-        foreignField: if keyTo is 'id' then '_id' else keyTo
+        localField: normId keyFrom
+        foreignField: normId keyTo
         as: name
 
       @filter.lookups.push $lookup: lookup

@@ -114,12 +114,19 @@ Query = (function() {
    */
 
   Query.prototype.include = function(includes) {
-    var add;
+    var add, normId;
     add = function(item, fn) {
       if (Array.isArray(item)) {
         return item.forEach(fn);
       } else {
         return fn(item, true);
+      }
+    };
+    normId = function(id) {
+      if (id === 'id') {
+        return '_id';
+      } else {
+        return keyTo;
       }
     };
     add(includes, (function(_this) {
@@ -128,8 +135,8 @@ Query = (function() {
         ref1 = _this.model.relations[item.relation || item], modelTo = ref1.modelTo, multiple = ref1.multiple, name = ref1.name, keyFrom = ref1.keyFrom, keyTo = ref1.keyTo;
         lookup = {
           from: modelTo.modelName,
-          localField: keyFrom,
-          foreignField: keyTo === 'id' ? '_id' : keyTo,
+          localField: normId(keyFrom),
+          foreignField: normId(keyTo),
           as: name
         };
         _this.filter.lookups.push({
