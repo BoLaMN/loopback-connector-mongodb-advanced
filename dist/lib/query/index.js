@@ -126,7 +126,7 @@ Query = (function() {
       if (id === 'id') {
         return '_id';
       } else {
-        return keyTo;
+        return id;
       }
     };
     add(includes, (function(_this) {

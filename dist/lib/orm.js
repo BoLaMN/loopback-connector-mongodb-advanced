@@ -27,7 +27,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.all = function(modelName, filter, options, callback) {
-    var aggregate, collection, fields, model, ref1, where;
+    var aggregate, collection, cursor, fields, model, ref1, where;
     if (options == null) {
       options = {};
     }
@@ -44,14 +44,13 @@ ORM = (function(superClass) {
           '$group': filter.aggregateGroup
         }
       ];
-      return collection.aggregate(aggregate, options, rewriteId).tap(function(results) {
-        return debug('all.aggregate.callback', modelName, results);
-      }).asCallback(callback);
+      cursor = collection.aggregate(aggregate, options);
     } else {
-      return collection.find(where, fields, options, rewriteId).tap(function(results) {
-        return debug('all.find.callback', modelName, results);
-      }).asCallback(callback);
+      cursor = collection.find(where, fields, options);
     }
+    return cursor.mapArray(rewriteId).tap(function(results) {
+      return debug('all.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -135,7 +134,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.destroyAll = function(modelName, filter, options, callback) {
-    var collection, fields, finish, model, ref1, where;
+    var collection, fields, model, ref1, where;
     if (options == null) {
       options = {};
     }
@@ -147,10 +146,7 @@ ORM = (function(superClass) {
     model = this.model(modelName);
     ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
     where = filter.where, fields = filter.fields;
-    finish = function(err, results) {
-      if (err) {
-        return callback(err);
-      }
+    return collection.remove(where, options).then(function(results) {
       debug('destroyAll.callback', results);
       if (!Array.isArray(results)) {
         results = [results];
@@ -160,11 +156,10 @@ ORM = (function(superClass) {
           id: result
         };
       });
-      return callback(null, result);
-    };
-    return collection.remove(where, options, finish).tap(function(results) {
+      return results;
+    }).tap(function(results) {
       return debug('destroyAll.callback', modelName, results);
-    }).asCallback(finish);
+    }).asCallback(callback);
   };
 
 
@@ -350,7 +345,9 @@ ORM = (function(superClass) {
     where = filter.where;
     return collection.update(where, data, options).tap(function(results) {
       return debug('update.callback', modelName, results);
-    }).asCallback(callback);
+    }).asCallback(callback, {
+      spread: true
+    });
   };
 
   ORM.prototype.updateAll = ORM.update;

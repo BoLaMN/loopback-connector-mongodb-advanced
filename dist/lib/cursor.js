@@ -53,7 +53,7 @@ Cursor = (function(superClass) {
     });
   };
 
-  Cursor.prototype.map = function(mapfn) {
+  Cursor.prototype.mapArray = function(mapfn) {
     return new Promise(function(resolve, reject) {
       var array, iterate;
       array = [];

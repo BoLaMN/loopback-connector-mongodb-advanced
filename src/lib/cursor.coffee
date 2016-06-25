@@ -35,7 +35,7 @@ class Cursor extends Readable
 
       iterate()
 
-  map: (mapfn) ->
+  mapArray: (mapfn) ->
     new Promise (resolve, reject) ->
       array = []
 

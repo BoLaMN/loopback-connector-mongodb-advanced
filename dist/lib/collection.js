@@ -24,56 +24,44 @@ Collection = (function() {
     this.collection = collection;
   }
 
-  Collection.prototype.find = function(query, projection, opts, mapFn, callback) {
+  Collection.prototype.find = function(query, projection, opts, callback) {
     var cursor;
     if (isFunction(query)) {
-      return this.find({}, null, null, null, query);
+      return this.find({}, null, null, query);
     }
     if (isFunction(projection)) {
-      return this.find(query, null, null, null, projection);
+      return this.find(query, null, null, projection);
     }
     if (isFunction(opts)) {
-      return this.find(query, projection, null, null, opts);
-    }
-    console.log('args length', arguments.length, mapFn);
-    if (arguments.length === 4) {
-      return this.find(query, projection, opts, null, callback);
+      return this.find(query, projection, null, opts);
     }
     cursor = new Cursor(this.collection.find(query, projection, opts));
     if (callback) {
-      if (mapFn) {
-        return cursor.map(mapFn).asCallback(callback);
-      } else {
-        return cursor.toArray().asCallback(callback);
-      }
+      return cursor.toArray().asCallback(callback);
     }
     return cursor;
   };
 
-  Collection.prototype.findOne = function(query, projection, mapFn, callback) {
+  Collection.prototype.findOne = function(query, projection, callback) {
     if (isFunction(query)) {
       return this.findOne({}, null, query);
     }
     if (isFunction(projection)) {
       return this.findOne(query, null, projection);
     }
-    if (isFunction(mapFn && !isFunction(callback))) {
-      return this.findOne(query, projection, null, callback);
-    }
-    return this.find(query, projection, mapFn).next().asCallback(callback);
+    return this.find(query, projection).next().asCallback(callback);
   };
 
   Collection.prototype.findAndModify = function(opts, callback) {
-    var done;
-    done = function(err, result) {
-      if (err) {
-        return callback(err);
-      }
-      return callback(null, result.value, result.lastErrorObject || {
-        n: 0
-      });
-    };
-    return this.execute('findAndModify', opts).asCallback(done);
+    return this.execute('findAndModify', opts).then(function(results) {
+      return [
+        result.value, result.lastErrorObject || {
+          n: 0
+        }
+      ];
+    }).asCallback(callback, {
+      spread: true
+    });
   };
 
   Collection.prototype.count = function(query, callback) {
@@ -84,22 +72,18 @@ Collection = (function() {
   };
 
   Collection.prototype.distinct = function(field, query, callback) {
-    var done, params;
+    var params;
     params = {
       key: field,
       query: query
     };
-    done = function(err, result) {
-      if (err) {
-        return callback(err);
-      }
-      return callback(null, result.values);
-    };
-    return this.execute('distinct', params).asCallback(done);
+    return this.execute('distinct', params).then(function(results) {
+      return results.values;
+    }).asCallback(callback);
   };
 
   Collection.prototype.insert = function(docOrDocs, opts, callback) {
-    var docs, i, id, instances;
+    var docs, i, id;
     if (!opts && !callback) {
       return this.insert(docOrDocs, {}, noop);
     }
@@ -110,45 +94,42 @@ Collection = (function() {
       return this.insert(docOrDocs, opts, noop);
     }
     docs = Array.isArray(docOrDocs) ? docOrDocs : [docOrDocs];
-    instances = clone(docs);
     i = 0;
     while (i < docs.length) {
+      if (docs[i].id) {
+        docs[i]._id = docs[i].id;
+        delete docs[i].id;
+      }
       if (!docs[i]._id) {
         id = ObjectID.createPk();
         docs[i]._id = id;
       }
-      instances[i].id = docs[i]._id.toString();
-      delete instances[i]._id;
       i++;
     }
-    return this.collection.insert(docs, extend(writeOpts, opts)).then(function(results) {
-      return instances;
-    }).asCallback(callback);
+    return this.collection.insert(docs, extend(writeOpts, opts)).asCallback(callback);
   };
 
   Collection.prototype.update = function(query, update, opts, callback) {
-    var done;
     if (!opts && !callback) {
       return this.update(query, update, {}, noop);
     }
     if (isFunction(opts)) {
       return this.update(query, update, {}, opts);
     }
-    done = function(err, result) {
-      if (err) {
-        return callback(err);
-      }
-      return callback(null, result.result);
-    };
-    return this.collection.update(query, update, extend(writeOpts, opts)).asCallback(done);
+    return this.collection.update(query, update, extend(writeOpts, opts)).then(function(results) {
+      return results.result;
+    }).asCallback(callback);
   };
 
   Collection.prototype.save = function(doc, opts, callback) {
-    if (opts == null) {
-      opts = {};
+    if (!opts && !callback) {
+      return this.save(doc, {}, noop);
     }
     if (isFunction(opts)) {
       return this.save(doc, {}, opts);
+    }
+    if (!callback) {
+      return this.save(doc, opts, noop);
     }
     if (doc._id) {
       return this.update({
@@ -187,8 +168,8 @@ Collection = (function() {
       return this.remove(query, opts, noop);
     }
     deleteOperation = opts.justOne ? 'deleteOne' : 'deleteMany';
-    return this.collection[deleteOperation](query, extend(opts, writeOpts)).then(function(result) {
-      return result.result;
+    return this.collection[deleteOperation](query, extend(opts, writeOpts)).then(function(results) {
+      return results.result;
     }).asCallback(callback);
   };
 
@@ -297,20 +278,13 @@ Collection = (function() {
     return this.collection.group(key, doc.cond, doc.initial, doc.reduce, doc.finalize).asCallback(callback);
   };
 
-  Collection.prototype.aggregate = function(pipeline, opts, mapFn, callback) {
-    var cursor;
-    if (isFunction(mapFn && !isFunction(callback))) {
-      return this.aggregate(pipeline, opts, null, callback);
-    }
-    cursor = new Cursor(this.collection.aggregate(pipeline, opts));
+  Collection.prototype.aggregate = function(pipeline, opts, callback) {
+    var strm;
+    strm = new Cursor(this.collection.aggregate(pipeline, opts));
     if (callback) {
-      if (mapFn) {
-        return cursor.map(mapFn).asCallback(callback);
-      } else {
-        return cursor.toArray().asCallback(callback);
-      }
+      return strm.toArray().asCallback(callback);
     }
-    return cursor;
+    return strm;
   };
 
   Collection.prototype.bulk = function(ordered) {

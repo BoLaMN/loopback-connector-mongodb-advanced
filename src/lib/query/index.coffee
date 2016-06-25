@@ -89,7 +89,7 @@ class Query
     normId = (id) ->
       if id is 'id'
         '_id'
-      else keyTo
+      else id
 
     add includes, (item, notArray) =>
       { modelTo, multiple, name, keyFrom, keyTo } = @model.relations[item.relation or item]

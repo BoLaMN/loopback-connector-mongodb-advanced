@@ -28,15 +28,14 @@ class ORM extends Connector
         { '$group': filter.aggregateGroup }
       ]
 
-      collection.aggregate aggregate, options, rewriteId
-        .tap (results) ->
-          debug 'all.aggregate.callback', modelName, results
-        .asCallback callback
+      cursor = collection.aggregate aggregate, options
     else
-      collection.find where, fields, options, rewriteId
-        .tap (results) ->
-          debug 'all.find.callback', modelName, results
-        .asCallback callback
+      cursor = collection.find where, fields, options
+
+    cursor.mapArray rewriteId
+      .tap (results) ->
+        debug 'all.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Count the number of instances for the given model
@@ -113,24 +112,20 @@ class ORM extends Connector
     { filter, options } = new Query filter, model.model
     { where, fields } = filter
 
-    finish = (err, results) ->
-      if err
-        return callback err
+    collection.remove where, options
+      .then (results) ->
+        debug 'destroyAll.callback', results
 
-      debug 'destroyAll.callback', results
+        if not Array.isArray results
+          results = [ results ]
 
-      if not Array.isArray results
-        results = [ results ]
+        results = results.map (result) ->
+          id: result
 
-      results = results.map (result) ->
-        id: result
-
-      callback null, result
-
-    collection.remove where, options, finish
+        results
       .tap (results) ->
         debug 'destroyAll.callback', modelName, results
-      .asCallback finish
+      .asCallback callback
 
   ###*
   # Check if a model instance exists by id
@@ -274,7 +269,7 @@ class ORM extends Connector
     collection.update where, data, options
       .tap (results) ->
         debug 'update.callback', modelName, results
-      .asCallback callback
+      .asCallback callback, spread: true
 
   updateAll: @update
 
