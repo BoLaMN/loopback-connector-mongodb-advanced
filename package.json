@@ -21,6 +21,10 @@
     "debug": "^2.2.0",
     "lodash": "^4.13.1",
     "loopback-connector": "^2.3.0",
+    "loopback-datasource-juggler": "^2.46.1",
     "mongodb": "^2.1.18"
+  },
+  "devDependencies": {
+    "benchmark": "^2.1.0"
   }
 }

@@ -3,7 +3,6 @@ debug = require('debug')('loopback:connector:mongodb-advanced')
 Cursor = require './cursor'
 Bulk = require './bulk'
 
-{ rewriteIds } = require './utils'
 { ObjectID } = require 'mongodb'
 { extend, isFunction, isBoolean } = require 'lodash'
 
@@ -103,7 +102,7 @@ class Collection
 
     @collection.insert docs, extend(writeOpts, opts)
       .then (results) ->
-        rewriteIds results.ops
+        docOrDocs
       .asCallback done
 
   update: (query, update, opts, callback) ->
