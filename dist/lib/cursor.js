@@ -31,7 +31,7 @@ Cursor = (function(superClass) {
     return this;
   };
 
-  Cursor.prototype.toArray = function(callback) {
+  Cursor.prototype.toArray = function() {
     return new Promise(function(resolve, reject) {
       var array, iterate;
       array = [];
@@ -53,21 +53,26 @@ Cursor = (function(superClass) {
     });
   };
 
-  Cursor.prototype.map = function(mapfn, callback) {
-    var array, iterate;
-    array = [];
-    iterate = (function(_this) {
-      return function() {
-        return _this.next(function(err, obj) {
-          if (err || !obj) {
-            return callback(err, array);
-          }
-          array.push(mapfn(obj));
-          return iterate();
-        });
-      };
-    })(this);
-    return iterate();
+  Cursor.prototype.map = function(mapfn) {
+    return new Promise(function(resolve, reject) {
+      var array, iterate;
+      array = [];
+      iterate = (function(_this) {
+        return function() {
+          return _this.next(function(err, obj) {
+            if (err) {
+              return reject(err);
+            }
+            if (!obj) {
+              return resolve(array);
+            }
+            array.push(mapfn(obj));
+            return iterate();
+          });
+        };
+      })(this);
+      return iterate();
+    });
   };
 
   Cursor.prototype.forEach = function(fn) {

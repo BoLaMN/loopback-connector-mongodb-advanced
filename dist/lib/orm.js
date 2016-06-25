@@ -1,4 +1,4 @@
-var Connector, ORM, Query, debug, rewriteIds,
+var Connector, ORM, Query, debug, normalizeId, parseUpdateData, ref, rewriteId,
   extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   hasProp = {}.hasOwnProperty;
 
@@ -8,7 +8,7 @@ Query = require('./query');
 
 Connector = require('loopback-connector').Connector;
 
-rewriteIds = require('./utils').rewriteIds;
+ref = require('./utils'), normalizeId = ref.normalizeId, rewriteId = ref.rewriteId, parseUpdateData = ref.parseUpdateData;
 
 ORM = (function(superClass) {
   extend(ORM, superClass);
@@ -27,20 +27,15 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.all = function(modelName, filter, options, callback) {
-    var aggregate, collection, fields, finish, model, ref, where;
+    var aggregate, collection, fields, model, ref1, where;
     if (options == null) {
       options = {};
     }
     debug('all', modelName, filter);
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref = new Query(filter, model.model), filter = ref.filter, options = ref.options;
+    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
-    debug(filter.lookups);
-    finish = function(err, results) {
-      debug('all.callback', modelName, results);
-      return callback(err, rewriteIds(results));
-    };
     if (aggregate) {
       aggregate = [
         {
@@ -49,9 +44,13 @@ ORM = (function(superClass) {
           '$group': filter.aggregateGroup
         }
       ];
-      return collection.aggregate(aggregate, finish);
+      return collection.aggregate(aggregate, options, rewriteId).tap(function(results) {
+        return debug('all.aggregate.callback', modelName, results);
+      }).asCallback(callback);
     } else {
-      return collection.find(where, fields, options, finish);
+      return collection.find(where, fields, options, rewriteId).tap(function(results) {
+        return debug('all.find.callback', modelName, results);
+      }).asCallback(callback);
     }
   };
 
@@ -66,7 +65,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.count = function(modelName, filter, options, callback) {
-    var collection, model, ref, where;
+    var collection, model, ref1, where;
     if (options == null) {
       options = {};
     }
@@ -76,7 +75,7 @@ ORM = (function(superClass) {
     }
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref = new Query(filter, model), filter = ref.filter, options = ref.options;
+    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
     where = filter.where;
     return collection.count(where).tap(function(results) {
       return debug('count.callback', modelName, results);
@@ -136,7 +135,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.destroyAll = function(modelName, filter, options, callback) {
-    var collection, fields, model, ref, where;
+    var collection, fields, finish, model, ref1, where;
     if (options == null) {
       options = {};
     }
@@ -146,29 +145,26 @@ ORM = (function(superClass) {
     }
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref = new Query(filter, model), filter = ref.filter, options = ref.options;
+    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
     where = filter.where, fields = filter.fields;
-    return collection.remove(where, options, function(err, results) {
-      var result, resultsArray;
+    finish = function(err, results) {
       if (err) {
         return callback(err);
       }
-      resultsArray = [];
+      debug('destroyAll.callback', results);
       if (!Array.isArray(results)) {
-        resultsArray.push({
-          id: results
-        });
-        return callback(null, resultsArray);
+        results = [results];
       }
-      results.forEach(function(result) {
-        return resultsArray.push({
+      results = results.map(function(result) {
+        return {
           id: result
-        });
+        };
       });
-      result = rewriteIds(resultArray, properties);
-      debug('destroyAll.callback', result);
       return callback(null, result);
-    });
+    };
+    return collection.remove(where, options, finish).tap(function(results) {
+      return debug('destroyAll.callback', modelName, results);
+    }).asCallback(finish);
   };
 
 
@@ -211,7 +207,9 @@ ORM = (function(superClass) {
     collection = this.collection(modelName);
     return collection.findOne({
       _id: id
-    }, options, callback);
+    }, options, rewriteId).tap(function(results) {
+      return debug('find.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -248,13 +246,15 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.replaceById = function(modelName, id, data, options, callback) {
-    var collection;
     if (options == null) {
       options = {};
     }
     debug('replaceById', modelName, id, data);
-    collection = this.collection(modelName);
-    return callback(null, {});
+    return this.replaceWithOptions(model, id, data, {
+      upsert: false
+    }).tap(function(results) {
+      return debug('replaceById.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -268,13 +268,15 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.replaceOrCreate = function(modelName, data, options, callback) {
-    var collection;
     if (options == null) {
       options = {};
     }
     debug('replaceOrCreate', modelName, data);
-    collection = this.collection(modelName);
-    return callback(null, {});
+    return this.replaceWithOptions(model, id, data, {
+      upsert: true
+    }).tap(function(results) {
+      return debug('replaceOrCreate.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -297,7 +299,11 @@ ORM = (function(superClass) {
     }
     debug('updateWithOptions', modelName, id, data);
     collection = this.collection(modelName);
-    return callback(null, {});
+    return collection.update({
+      _id: normalizeId(id)
+    }, data, options).tap(function(results) {
+      return debug('updateWithOptions.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -315,7 +321,9 @@ ORM = (function(superClass) {
     }
     debug('save', modelName, data);
     collection = this.collection(modelName);
-    return collection.save(data, options, callback);
+    return collection.save(data, options).tap(function(results) {
+      return debug('save.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -328,7 +336,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.update = function(modelName, filter, data, options, callback) {
-    var collection, model, ref, where;
+    var collection, model, ref1, where;
     if (options == null) {
       options = {};
     }
@@ -338,7 +346,7 @@ ORM = (function(superClass) {
     }
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref = new Query(filter, model), filter = ref.filter, options = ref.options;
+    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
     where = filter.where;
     return collection.update(where, data, options).tap(function(results) {
       return debug('update.callback', modelName, results);
@@ -356,13 +364,20 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.updateAttributes = function(modelName, id, data, options, callback) {
-    var collection;
+    var collection, sort;
     if (options == null) {
       options = {};
     }
     debug('updateAttributes', modelName, id, data);
+    data = parseUpdateData(data);
     collection = this.collection(modelName);
-    return callback(null, {});
+    id = data[this.idName(modelName)];
+    sort = ['_id', 'asc'];
+    return collection.findAndModify({
+      _id: id
+    }, [sort], data, {}).tap(function(results) {
+      return debug('updateAttributes.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 

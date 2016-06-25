@@ -20,7 +20,7 @@ class Cursor extends Readable
     @cursor.rewind callback
     this
 
-  toArray: (callback) ->
+  toArray: ->
     new Promise (resolve, reject) ->
       array = []
 
@@ -35,17 +35,20 @@ class Cursor extends Readable
 
       iterate()
 
-  map: (mapfn, callback) ->
-    array = []
+  map: (mapfn) ->
+    new Promise (resolve, reject) ->
+      array = []
 
-    iterate = =>
-      @next (err, obj) ->
-        if err or not obj
-          return callback err, array
-        array.push mapfn obj
-        iterate()
+      iterate = =>
+        @next (err, obj) ->
+          if err
+            return reject err
+          if not obj
+            return resolve array
+          array.push mapfn obj
+          iterate()
 
-    iterate()
+      iterate()
 
   forEach: (fn) ->
 

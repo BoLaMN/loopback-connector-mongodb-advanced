@@ -3,7 +3,7 @@ debug = require('debug')('loopback:connector:mongodb-advanced')
 Query = require './query'
 
 { Connector } = require 'loopback-connector'
-{ rewriteIds } = require './utils'
+{ normalizeId, rewriteId, parseUpdateData } = require './utils'
 
 class ORM extends Connector
   ###*
@@ -22,21 +22,21 @@ class ORM extends Connector
     { filter, options } = new Query filter, model.model
     { where, aggregate, fields } = filter
 
-    debug filter.lookups
-
-    finish = (err, results) ->
-      debug 'all.callback', modelName, results
-      callback err, rewriteIds results
-
     if aggregate
       aggregate = [
         { '$match': where }
         { '$group': filter.aggregateGroup }
       ]
 
-      collection.aggregate aggregate, finish
+      collection.aggregate aggregate, options, rewriteId
+        .tap (results) ->
+          debug 'all.aggregate.callback', modelName, results
+        .asCallback callback
     else
-      collection.find where, fields, options, finish
+      collection.find where, fields, options, rewriteId
+        .tap (results) ->
+          debug 'all.find.callback', modelName, results
+        .asCallback callback
 
   ###*
   # Count the number of instances for the given model
@@ -55,7 +55,7 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model
+    { filter, options } = new Query filter, model.model
     { where } = filter
 
     collection.count where
@@ -110,27 +110,28 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model
+    { filter, options } = new Query filter, model.model
     { where, fields } = filter
 
-    collection.remove where, options, (err, results) ->
+    finish = (err, results) ->
       if err
         return callback err
 
-      resultsArray = []
+      debug 'destroyAll.callback', results
 
-      if !Array.isArray(results)
-        resultsArray.push id: results
-        return callback(null, resultsArray)
+      if not Array.isArray results
+        results = [ results ]
 
-      results.forEach (result) ->
-        resultsArray.push id: result
-
-      result = rewriteIds(resultArray, properties)
-
-      debug 'destroyAll.callback', result
+      results = results.map (result) ->
+        id: result
 
       callback null, result
+
+    collection.remove where, options, finish
+      .tap (results) ->
+        debug 'destroyAll.callback', modelName, results
+      .asCallback finish
+
   ###*
   # Check if a model instance exists by id
   # @param {String} model The model name
@@ -159,7 +160,10 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    collection.findOne _id: id, options, callback
+    collection.findOne _id: id , options, rewriteId
+      .tap (results) ->
+        debug 'find.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Find a matching model instances by the filter
@@ -190,9 +194,10 @@ class ORM extends Connector
   replaceById: (modelName, id, data, options = {}, callback) ->
     debug 'replaceById', modelName, id, data
 
-    collection = @collection modelName
-
-    callback null, {}
+    @replaceWithOptions model, id, data, upsert: false
+      .tap (results) ->
+        debug 'replaceById.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Replace model instance if it exists or create a new one if it doesn't
@@ -205,9 +210,10 @@ class ORM extends Connector
   replaceOrCreate: (modelName, data, options = {}, callback) ->
     debug 'replaceOrCreate', modelName, data
 
-    collection = @collection modelName
-
-    callback null, {}
+    @replaceWithOptions model, id, data, upsert: true
+      .tap (results) ->
+        debug 'replaceOrCreate.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Update a model instance with id
@@ -225,7 +231,10 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    callback null, {}
+    collection.update { _id: normalizeId(id) }, data, options
+      .tap (results) ->
+        debug 'updateWithOptions.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Save the model instance for the given data
@@ -238,7 +247,10 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    collection.save data, options, callback
+    collection.save data, options
+      .tap (results) ->
+        debug 'save.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Update all matching instances
@@ -256,7 +268,7 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model
+    { filter, options } = new Query filter, model.model
     { where } = filter
 
     collection.update where, data, options
@@ -275,9 +287,16 @@ class ORM extends Connector
   updateAttributes: (modelName, id, data, options = {}, callback) ->
     debug 'updateAttributes', modelName, id, data
 
+    data = parseUpdateData data
     collection = @collection modelName
 
-    callback null, {}
+    id = data[ @idName(modelName) ]
+    sort = [ '_id', 'asc' ]
+
+    collection.findAndModify { _id: id }, [ sort ], data, {}
+      .tap (results) ->
+        debug 'updateAttributes.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Update if the model instance exists with the same

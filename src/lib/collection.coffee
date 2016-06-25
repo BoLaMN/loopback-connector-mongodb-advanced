@@ -4,7 +4,7 @@ Cursor = require './cursor'
 Bulk = require './bulk'
 
 { ObjectID } = require 'mongodb'
-{ extend, isFunction, isBoolean } = require 'lodash'
+{ clone, extend, isFunction, isBoolean } = require 'lodash'
 
 writeOpts =
   writeConcern: w: 1
@@ -15,31 +15,41 @@ noop = ->
 class Collection
   constructor: (@collection) ->
 
-  find: (query, projection, opts, callback) ->
+  find: (query, projection, opts, mapFn, callback) ->
     if isFunction query
-      return @find {}, null, null, query
+      return @find {}, null, null, null, query
 
     if isFunction projection
-      return @find query, null, null, projection
+      return @find query, null, null, null, projection
 
     if isFunction opts
-      return @find query, projection, null, opts
+      return @find query, projection, null, null, opts
+
+    console.log 'args length', arguments.length, mapFn
+    if arguments.length is 4
+      return @find query, projection, opts, null, callback
 
     cursor = new Cursor @collection.find(query, projection, opts)
 
     if callback
-      return cursor.toArray().asCallback callback
+      if mapFn
+        return cursor.map(mapFn).asCallback callback
+      else
+        return cursor.toArray().asCallback callback
 
     cursor
 
-  findOne: (query, projection, callback) ->
+  findOne: (query, projection, mapFn, callback) ->
     if isFunction query
       return @findOne {}, null, query
 
     if isFunction projection
       return @findOne query, null, projection
 
-    @find query, projection
+    if isFunction mapFn and not isFunction callback
+      return @findOne query, projection, null, callback
+
+    @find query, projection, mapFn
       .next()
       .asCallback callback
 
@@ -87,23 +97,21 @@ class Collection
       return @insert docOrDocs, opts, noop
 
     docs = if Array.isArray(docOrDocs) then docOrDocs else [ docOrDocs ]
+    instances = clone docs
+
     i = 0
 
     while i < docs.length
       if not docs[i]._id
-        docs[i]._id = ObjectID.createPk()
+        id = ObjectID.createPk()
+        docs[i]._id = id
+      instances[i].id = docs[i]._id.toString()
+      delete instances[i]._id
       i++
 
-    done = (err) ->
-      if err
-        return callback err
-
-      callback null, docs
-
     @collection.insert docs, extend(writeOpts, opts)
-      .then (results) ->
-        docOrDocs
-      .asCallback done
+      .then (results) -> instances
+      .asCallback callback
 
   update: (query, update, opts, callback) ->
     if not opts and not callback
@@ -121,15 +129,9 @@ class Collection
     @collection.update query, update, extend(writeOpts, opts)
       .asCallback done
 
-  save: (doc, opts, callback) ->
-    if not opts and not callback
-      return @save doc, {}, noop
-
+  save: (doc, opts = {}, callback) ->
     if isFunction opts
       return @save doc, {}, opts
-
-    if not callback
-      return @save doc, opts, noop
 
     if doc._id
       @update { _id: doc._id }, doc, extend({ upsert: true }, opts)
@@ -156,14 +158,10 @@ class Collection
 
     deleteOperation = if opts.justOne then 'deleteOne' else 'deleteMany'
 
-    done = (err, result) ->
-      if err
-        return callback err
-
-      callback null, result.result
-
     @collection[deleteOperation] query, extend(opts, writeOpts)
-      .asCallback done
+      .then (result) ->
+        result.result
+      .asCallback callback
 
   rename: (name, opts, callback) ->
     if isFunction opts
@@ -267,13 +265,19 @@ class Collection
     @collection.group key, doc.cond, doc.initial, doc.reduce, doc.finalize
       .asCallback callback
 
-  aggregate: (pipeline, opts, callback) ->
-    strm = new Cursor @collection.aggregate pipeline, opts
+  aggregate: (pipeline, opts, mapFn, callback) ->
+    if isFunction mapFn and not isFunction callback
+      return @aggregate pipeline, opts, null, callback
+
+    cursor = new Cursor @collection.aggregate pipeline, opts
 
     if callback
-      return strm.toArray().asCallback callback
+      if mapFn
+        return cursor.map(mapFn).asCallback callback
+      else
+        return cursor.toArray().asCallback callback
 
-    strm
+    cursor
 
   bulk: (ordered = true) ->
     new Bulk @collection, ordered

@@ -37,7 +37,7 @@ exports.normalizeId = (value) ->
 exports.normalizeIds = (values) ->
   values.map exports.normalizeId
 
-exports.parseUpdateData = (modelClass, data, options = {}) ->
+exports.parseUpdateData = (data) ->
   parsedData = {}
 
   acceptedOperators = [

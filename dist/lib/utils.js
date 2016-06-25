@@ -53,11 +53,8 @@ exports.normalizeIds = function(values) {
   return values.map(exports.normalizeId);
 };
 
-exports.parseUpdateData = function(modelClass, data, options) {
+exports.parseUpdateData = function(data) {
   var acceptedOperators, i, parsedData, usedOperators;
-  if (options == null) {
-    options = {};
-  }
   parsedData = {};
   acceptedOperators = ['$currentDate', '$inc', '$max', '$min', '$mul', '$rename', '$setOnInsert', '$set', '$unset', '$addToSet', '$pop', '$pullAll', '$pull', '$pushAll', '$push', '$bit'];
   usedOperators = 0;
