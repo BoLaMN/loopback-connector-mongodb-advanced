@@ -1,4 +1,4 @@
-var Connector, ORM, Query, debug, normalizeId, parseUpdateData, ref, rewriteId,
+var Connector, ORM, Query, debug, normalizeId, normalizeIds, parseUpdateData, ref, rewriteId,
   extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   hasProp = {}.hasOwnProperty;
 
@@ -8,7 +8,7 @@ Query = require('./query');
 
 Connector = require('loopback-connector').Connector;
 
-ref = require('./utils'), normalizeId = ref.normalizeId, rewriteId = ref.rewriteId, parseUpdateData = ref.parseUpdateData;
+ref = require('./utils'), normalizeIds = ref.normalizeIds, normalizeId = ref.normalizeId, rewriteId = ref.rewriteId, parseUpdateData = ref.parseUpdateData;
 
 ORM = (function(superClass) {
   extend(ORM, superClass);
@@ -35,6 +35,7 @@ ORM = (function(superClass) {
     collection = this.collection(modelName);
     model = this.model(modelName);
     ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    debug('all.filter', modelName, filter);
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
     if (aggregate) {
       aggregate = [
@@ -90,16 +91,19 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.create = function(modelName, data, options, callback) {
-    var collection;
+    var collection, docs;
     if (options == null) {
       options = {};
     }
     debug('create', modelName, data);
     collection = this.collection(modelName);
-    return collection.insert(data, {
+    docs = Array.isArray(data) ? data : [data];
+    return collection.insert(normalizeIds(docs), {
       safe: true
     }).tap(function(results) {
       return debug('create.callback', modelName, results);
+    }).then(function(results) {
+      return results.insertedIds[0];
     }).asCallback(callback);
   };
 
@@ -221,13 +225,25 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.findOrCreate = function(modelName, filter, data, callback) {
-    var collection;
+    var collection, fields, model, options, query, ref1, sort, where;
     if (filter == null) {
       filter = {};
     }
     debug('findOrCreate', modelName, filter, data);
     collection = this.collection(modelName);
-    return callback(null, {});
+    model = this.model(modelName);
+    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    where = filter.where, fields = filter.fields, sort = filter.sort;
+    query = {
+      projection: fields,
+      sort: sort,
+      upsert: true
+    };
+    return collection.findOneAndUpdate(where, {
+      $setOnInsert: data
+    }, query).tap(function(results) {
+      return debug('findOrCreate.callback', modelName, results);
+    }).asCallback(callback);
   };
 
 
@@ -316,7 +332,7 @@ ORM = (function(superClass) {
     }
     debug('save', modelName, data);
     collection = this.collection(modelName);
-    return collection.save(data, options).tap(function(results) {
+    return collection.save(normalizeId(data), options).tap(function(results) {
       return debug('save.callback', modelName, results);
     }).asCallback(callback);
   };
@@ -372,7 +388,7 @@ ORM = (function(superClass) {
     sort = ['_id', 'asc'];
     return collection.findAndModify({
       _id: id
-    }, [sort], data, {}).tap(function(results) {
+    }, data, sort).tap(function(results) {
       return debug('updateAttributes.callback', modelName, results);
     }).asCallback(callback);
   };

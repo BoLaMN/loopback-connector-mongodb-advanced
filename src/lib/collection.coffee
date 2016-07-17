@@ -43,8 +43,34 @@ class Collection
       .next()
       .asCallback callback
 
-  findAndModify: (opts, callback) ->
-    @execute 'findAndModify', opts
+  findAndModify: (query, update, sort, opts, callback) ->
+    if not opts and not callback
+      return @findAndModify query, update, [], {}, noop
+
+    if isFunction sort
+      return @findAndModify query, update, [], {}, opts
+
+    if isFunction opts
+      return @findAndModify query, update, sort, {}, opts
+
+    params =
+      query: query
+      update: update
+      sort: sort
+
+    @execute 'findAndModify', params, extend(writeOpts, opts)
+      .then (results) ->
+        [ results.value, results.lastErrorObject or n: 0 ]
+      .asCallback callback, spread: true
+
+  findOneAndUpdate: (query, data, opts, callback) ->
+    if not opts and not callback
+      return @findOneAndUpdate query, data, {}, noop
+
+    if isFunction opts
+      return @findOneAndUpdate query, data, {}, opts
+
+    @execute 'findOneAndUpdate', query, data, opts
       .then (results) ->
         [ result.value, result.lastErrorObject or n: 0 ]
       .asCallback callback, spread: true
@@ -66,28 +92,15 @@ class Collection
       .then (results) -> results.values
       .asCallback callback
 
-  insert: (docOrDocs, opts, callback) ->
+  insert: (docs, opts, callback) ->
     if not opts and not callback
-      return @insert docOrDocs, {}, noop
+      return @insert docs, {}, noop
 
     if isFunction opts
-      return @insert docOrDocs, {}, opts
+      return @insert docs, {}, opts
 
     if opts and not callback
-      return @insert docOrDocs, opts, noop
-
-    docs = if Array.isArray(docOrDocs) then docOrDocs else [ docOrDocs ]
-
-    i = 0
-
-    while i < docs.length
-      if docs[i].id
-        docs[i]._id = docs[i].id
-        delete docs[i].id
-      if not docs[i]._id
-        id = ObjectID.createPk()
-        docs[i]._id = id
-      i++
+      return @insert docs, opts, noop
 
     @collection.insert docs, extend(writeOpts, opts)
       .asCallback callback

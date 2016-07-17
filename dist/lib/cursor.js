@@ -32,11 +32,11 @@ Cursor = (function(superClass) {
   };
 
   Cursor.prototype.toArray = function() {
-    return new Promise(function(resolve, reject) {
-      var array, iterate;
-      array = [];
-      iterate = (function(_this) {
-        return function() {
+    return new Promise((function(_this) {
+      return function(resolve, reject) {
+        var array, iterate;
+        array = [];
+        iterate = function() {
           return _this.next(function(err, obj) {
             if (err) {
               return reject(err);
@@ -48,17 +48,17 @@ Cursor = (function(superClass) {
             return iterate();
           });
         };
-      })(this);
-      return iterate();
-    });
+        return iterate();
+      };
+    })(this));
   };
 
   Cursor.prototype.mapArray = function(mapfn) {
-    return new Promise(function(resolve, reject) {
-      var array, iterate;
-      array = [];
-      iterate = (function(_this) {
-        return function() {
+    return new Promise((function(_this) {
+      return function(resolve, reject) {
+        var array, iterate;
+        array = [];
+        iterate = function() {
           return _this.next(function(err, obj) {
             if (err) {
               return reject(err);
@@ -70,25 +70,27 @@ Cursor = (function(superClass) {
             return iterate();
           });
         };
-      })(this);
-      return iterate();
-    });
+        return iterate();
+      };
+    })(this));
   };
 
   Cursor.prototype.forEach = function(fn) {
     var iterate;
-    iterate = function() {
-      return this.next(function(err, obj) {
-        if (err) {
-          return fn(err);
-        }
-        fn(err, obj);
-        if (!obj) {
-          return;
-        }
-        return iterate();
-      });
-    };
+    iterate = (function(_this) {
+      return function() {
+        return _this.next(function(err, obj) {
+          if (err) {
+            return fn(err);
+          }
+          fn(err, obj);
+          if (!obj) {
+            return;
+          }
+          return iterate();
+        });
+      };
+    })(this);
     return iterate();
   };
 

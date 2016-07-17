@@ -1,6 +1,6 @@
-var Binary, ObjectId, isArray, isString, ref, ref1;
+var Binary, ObjectId, isArray, isString, isUndefined, ref, ref1;
 
-ref = require('lodash'), isString = ref.isString, isArray = ref.isArray;
+ref = require('lodash'), isString = ref.isString, isArray = ref.isArray, isUndefined = ref.isUndefined;
 
 ref1 = require('mongodb'), ObjectId = ref1.ObjectId, Binary = ref1.Binary;
 
@@ -9,23 +9,9 @@ exports.rewriteId = function(model, schema) {
     model = {};
   }
   if (model._id) {
-    if (typeof model._id === 'object' && model._id._bsontype) {
-      model.id = model._id.toString();
-    } else {
-      model.id = model._id;
-    }
-    delete model._id;
+    model.id = model._id;
   }
-  if (!schema) {
-    return model;
-  }
-  Object.keys(schema).forEach(function(key) {
-    var foreignKey;
-    foreignKey = schema[key].foreignKey || false;
-    if (foreignKey && model[key] instanceof ObjectId) {
-      return model[key] = model[key].toString();
-    }
-  });
+  delete model._id;
   return model;
 };
 
@@ -38,15 +24,13 @@ exports.rewriteIds = function(models, schema) {
 };
 
 exports.normalizeId = function(value) {
-  if (!value.id) {
-    return;
-  }
   if (exports.matchMongoId(value.id)) {
-    value._id = new ObjectId.createFromHexString(value.id);
+    value._id = ObjectId(value.id);
   } else {
-    value._id = cloneDeep(value.id);
+    value._id = value.id || ObjectId.createPk();
   }
-  return delete value.id;
+  delete value.id;
+  return value;
 };
 
 exports.normalizeIds = function(values) {
@@ -89,17 +73,11 @@ exports.normalizeResults = function(models, schema) {
 };
 
 exports.matchMongoId = function(id) {
-  var test;
-  if (id === null) {
+  if (id === null || isUndefined(id)) {
     return false;
   }
-  test = cloneDeep(id);
-  if (typeof test.toString !== 'undefined') {
-    test = id.toString();
+  if (typeof id.toString !== 'undefined') {
+    id = id.toString();
   }
-  if (test.match(/^[a-fA-F0-9]{24}$/)) {
-    return true;
-  } else {
-    return false;
-  }
+  return id.match(/^[a-fA-F0-9]{24}$/);
 };

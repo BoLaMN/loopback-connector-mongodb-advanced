@@ -43,6 +43,9 @@ class Where
       if isArray value
         value = $in: value
 
+      if conditions is 'id'
+        conditions = '_id'
+
       @query[conditions] = value
 
     this

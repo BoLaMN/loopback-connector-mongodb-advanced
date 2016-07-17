@@ -52,8 +52,41 @@ Collection = (function() {
     return this.find(query, projection).next().asCallback(callback);
   };
 
-  Collection.prototype.findAndModify = function(opts, callback) {
-    return this.execute('findAndModify', opts).then(function(results) {
+  Collection.prototype.findAndModify = function(query, update, sort, opts, callback) {
+    var params;
+    if (!opts && !callback) {
+      return this.findAndModify(query, update, [], {}, noop);
+    }
+    if (isFunction(sort)) {
+      return this.findAndModify(query, update, [], {}, opts);
+    }
+    if (isFunction(opts)) {
+      return this.findAndModify(query, update, sort, {}, opts);
+    }
+    params = {
+      query: query,
+      update: update,
+      sort: sort
+    };
+    return this.execute('findAndModify', params, extend(writeOpts, opts)).then(function(results) {
+      return [
+        results.value, results.lastErrorObject || {
+          n: 0
+        }
+      ];
+    }).asCallback(callback, {
+      spread: true
+    });
+  };
+
+  Collection.prototype.findOneAndUpdate = function(query, data, opts, callback) {
+    if (!opts && !callback) {
+      return this.findOneAndUpdate(query, data, {}, noop);
+    }
+    if (isFunction(opts)) {
+      return this.findOneAndUpdate(query, data, {}, opts);
+    }
+    return this.execute('findOneAndUpdate', query, data, opts).then(function(results) {
       return [
         result.value, result.lastErrorObject || {
           n: 0
@@ -82,29 +115,15 @@ Collection = (function() {
     }).asCallback(callback);
   };
 
-  Collection.prototype.insert = function(docOrDocs, opts, callback) {
-    var docs, i, id;
+  Collection.prototype.insert = function(docs, opts, callback) {
     if (!opts && !callback) {
-      return this.insert(docOrDocs, {}, noop);
+      return this.insert(docs, {}, noop);
     }
     if (isFunction(opts)) {
-      return this.insert(docOrDocs, {}, opts);
+      return this.insert(docs, {}, opts);
     }
     if (opts && !callback) {
-      return this.insert(docOrDocs, opts, noop);
-    }
-    docs = Array.isArray(docOrDocs) ? docOrDocs : [docOrDocs];
-    i = 0;
-    while (i < docs.length) {
-      if (docs[i].id) {
-        docs[i]._id = docs[i].id;
-        delete docs[i].id;
-      }
-      if (!docs[i]._id) {
-        id = ObjectID.createPk();
-        docs[i]._id = id;
-      }
-      i++;
+      return this.insert(docs, opts, noop);
     }
     return this.collection.insert(docs, extend(writeOpts, opts)).asCallback(callback);
   };

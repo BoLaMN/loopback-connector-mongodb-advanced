@@ -3,7 +3,7 @@ debug = require('debug')('loopback:connector:mongodb-advanced')
 Query = require './query'
 
 { Connector } = require 'loopback-connector'
-{ normalizeId, rewriteId, parseUpdateData } = require './utils'
+{ normalizeIds, normalizeId, rewriteId, parseUpdateData } = require './utils'
 
 class ORM extends Connector
   ###*
@@ -20,6 +20,9 @@ class ORM extends Connector
     model = @model modelName
 
     { filter, options } = new Query filter, model.model
+
+    debug 'all.filter', modelName, filter
+
     { where, aggregate, fields } = filter
 
     if aggregate
@@ -72,10 +75,13 @@ class ORM extends Connector
     debug 'create', modelName, data
 
     collection = @collection modelName
+    docs = if Array.isArray(data) then data else [ data ]
 
-    collection.insert data, safe: true
+    collection.insert normalizeIds(docs), safe: true
       .tap (results) ->
         debug 'create.callback', modelName, results
+      .then (results) ->
+        results.insertedIds[0]
       .asCallback callback
 
   ###*
@@ -175,8 +181,20 @@ class ORM extends Connector
     debug 'findOrCreate', modelName, filter, data
 
     collection = @collection modelName
+    model = @model modelName
 
-    callback null, {}
+    { filter, options } = new Query filter, model.model
+    { where, fields, sort } = filter
+
+    query =
+      projection: fields
+      sort: sort
+      upsert: true
+
+    collection.findOneAndUpdate where, { $setOnInsert: data }, query
+      .tap (results) ->
+        debug 'findOrCreate.callback', modelName, results
+      .asCallback callback
 
   ###*
   # Replace properties for the model instance data
@@ -242,7 +260,7 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    collection.save data, options
+    collection.save normalizeId(data), options
       .tap (results) ->
         debug 'save.callback', modelName, results
       .asCallback callback
@@ -288,7 +306,7 @@ class ORM extends Connector
     id = data[ @idName(modelName) ]
     sort = [ '_id', 'asc' ]
 
-    collection.findAndModify { _id: id }, [ sort ], data, {}
+    collection.findAndModify { _id: id }, data, sort
       .tap (results) ->
         debug 'updateAttributes.callback', modelName, results
       .asCallback callback

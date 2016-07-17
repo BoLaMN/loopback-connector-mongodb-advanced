@@ -1,22 +1,11 @@
-{ isString, isArray } = require 'lodash'
+{ isString, isArray, isUndefined } = require 'lodash'
 { ObjectId, Binary } = require 'mongodb'
 
 exports.rewriteId = (model = {}, schema) ->
   if model._id
-    if typeof model._id == 'object' and model._id._bsontype
-      model.id = model._id.toString()
-    else
-      model.id = model._id
-    delete model._id
+    model.id = model._id
 
-  if !schema
-    return model
-
-  Object.keys(schema).forEach (key) ->
-    foreignKey = schema[key].foreignKey or false
-
-    if foreignKey and model[key] instanceof ObjectId
-      model[key] = model[key].toString()
+  delete model._id
 
   model
 
@@ -26,13 +15,14 @@ exports.rewriteIds = (models, schema) ->
       exports.rewriteId model, schema
 
 exports.normalizeId = (value) ->
-  if !value.id
-    return
   if exports.matchMongoId value.id
-    value._id = new ObjectId.createFromHexString value.id
+    value._id = ObjectId value.id
   else
-    value._id = cloneDeep value.id
+    value._id = value.id or ObjectId.createPk()
+
   delete value.id
+
+  value
 
 exports.normalizeIds = (values) ->
   values.map exports.normalizeId
@@ -82,9 +72,10 @@ exports.normalizeResults = (models = [], schema) ->
     model
 
 exports.matchMongoId = (id) ->
-  if id == null
+  if id is null or isUndefined id
     return false
-  test = cloneDeep(id)
-  if typeof test.toString != 'undefined'
-    test = id.toString()
-  if test.match(/^[a-fA-F0-9]{24}$/) then true else false
+
+  if typeof id.toString != 'undefined'
+    id = id.toString()
+
+  id.match /^[a-fA-F0-9]{24}$/

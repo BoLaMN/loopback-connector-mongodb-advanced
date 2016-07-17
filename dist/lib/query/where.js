@@ -52,6 +52,9 @@ Where = (function() {
           $in: value
         };
       }
+      if (conditions === 'id') {
+        conditions = '_id';
+      }
       this.query[conditions] = value;
     }
     return this;

@@ -21,7 +21,7 @@ class Cursor extends Readable
     this
 
   toArray: ->
-    new Promise (resolve, reject) ->
+    new Promise (resolve, reject) =>
       array = []
 
       iterate = =>
@@ -36,7 +36,7 @@ class Cursor extends Readable
       iterate()
 
   mapArray: (mapfn) ->
-    new Promise (resolve, reject) ->
+    new Promise (resolve, reject) =>
       array = []
 
       iterate = =>
@@ -52,7 +52,7 @@ class Cursor extends Readable
 
   forEach: (fn) ->
 
-    iterate = ->
+    iterate = =>
       @next (err, obj) ->
         return fn err if err
         fn err, obj
