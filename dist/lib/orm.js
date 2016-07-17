@@ -1,10 +1,12 @@
-var Connector, ORM, Query, debug, normalizeId, normalizeIds, parseUpdateData, ref, rewriteId,
+var Connector, ORM, Query, debug, inspect, normalizeId, normalizeIds, parseUpdateData, ref, rewriteId,
   extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
   hasProp = {}.hasOwnProperty;
 
 debug = require('debug')('loopback:connector:mongodb-advanced');
 
 Query = require('./query');
+
+inspect = require('util').inspect;
 
 Connector = require('loopback-connector').Connector;
 
@@ -35,16 +37,12 @@ ORM = (function(superClass) {
     collection = this.collection(modelName);
     model = this.model(modelName);
     ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
-    debug('all.filter', modelName, filter);
+    debug('all.filter', modelName, inspect(filter, false, null));
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
-    if (aggregate) {
-      aggregate = [
-        {
-          '$match': where
-        }, {
-          '$group': filter.aggregateGroup
-        }
-      ];
+    if (aggregate.length) {
+      aggregate.unshift({
+        '$match': where
+      });
       cursor = collection.aggregate(aggregate, options);
     } else {
       cursor = collection.find(where, fields, options);
@@ -76,6 +74,7 @@ ORM = (function(superClass) {
     collection = this.collection(modelName);
     model = this.model(modelName);
     ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    debug('where.filter', modelName, inspect(filter, false, null));
     where = filter.where;
     return collection.count(where).tap(function(results) {
       return debug('count.callback', modelName, results);
@@ -149,6 +148,7 @@ ORM = (function(superClass) {
     collection = this.collection(modelName);
     model = this.model(modelName);
     ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    debug('destroyAll.filter', modelName, inspect(filter, false, null));
     where = filter.where, fields = filter.fields;
     return collection.remove(where, options).then(function(results) {
       debug('destroyAll.callback', results);
@@ -358,6 +358,7 @@ ORM = (function(superClass) {
     collection = this.collection(modelName);
     model = this.model(modelName);
     ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    debug('update.filter', modelName, inspect(filter, false, null));
     where = filter.where;
     return collection.update(where, data, options).tap(function(results) {
       return debug('update.callback', modelName, results);

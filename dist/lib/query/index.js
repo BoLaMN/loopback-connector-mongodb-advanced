@@ -24,7 +24,7 @@ Query = (function() {
     this.filter = {
       fields: {},
       where: {},
-      lookups: []
+      aggregate: []
     };
     this.options = {
       sort: {}
@@ -133,17 +133,20 @@ Query = (function() {
       return function(item, notArray) {
         var fields, filter, keyFrom, keyTo, lookup, lookups, modelTo, multiple, name, ref1, where;
         ref1 = _this.model.relations[item.relation || item], modelTo = ref1.modelTo, multiple = ref1.multiple, name = ref1.name, keyFrom = ref1.keyFrom, keyTo = ref1.keyTo;
+        if (!modelTo) {
+          return;
+        }
         lookup = {
           from: modelTo.modelName,
           localField: normId(keyFrom),
           foreignField: normId(keyTo),
           as: name
         };
-        _this.filter.lookups.push({
+        _this.filter.aggregate.push({
           $lookup: lookup
         });
         if (!multiple) {
-          _this.filter.lookups.push({
+          _this.filter.aggregate.push({
             $unwind: '$' + name
           });
         }
@@ -151,17 +154,17 @@ Query = (function() {
           filter = new Query(item.scope, modelTo).filter;
           lookups = filter.lookups, where = filter.where, fields = filter.fields;
           if (Object.keys(where).length) {
-            _this.filter.lookups.push({
+            _this.filter.aggregate.push({
               $match: where
             });
           }
           if (Object.keys(fields).length) {
-            _this.filter.lookups.push({
+            _this.filter.aggregate.push({
               $project: fields
             });
           }
           if (lookups.length) {
-            return _this.filter.lookups = _this.filter.lookups.concat(lookups);
+            return _this.filter.aggregate = _this.filter.aggregate.concat(lookups);
           }
         }
       };

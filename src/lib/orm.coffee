@@ -1,7 +1,7 @@
 debug = require('debug')('loopback:connector:mongodb-advanced')
-
 Query = require './query'
 
+{ inspect } = require 'util'
 { Connector } = require 'loopback-connector'
 { normalizeIds, normalizeId, rewriteId, parseUpdateData } = require './utils'
 
@@ -21,16 +21,12 @@ class ORM extends Connector
 
     { filter, options } = new Query filter, model.model
 
-    debug 'all.filter', modelName, filter
+    debug 'all.filter', modelName, inspect filter, false, null
 
     { where, aggregate, fields } = filter
 
-    if aggregate
-      aggregate = [
-        { '$match': where }
-        { '$group': filter.aggregateGroup }
-      ]
-
+    if aggregate.length
+      aggregate.unshift '$match': where
       cursor = collection.aggregate aggregate, options
     else
       cursor = collection.find where, fields, options
@@ -58,6 +54,9 @@ class ORM extends Connector
     model = @model modelName
 
     { filter, options } = new Query filter, model.model
+
+    debug 'where.filter', modelName, inspect filter, false, null
+
     { where } = filter
 
     collection.count where
@@ -116,6 +115,9 @@ class ORM extends Connector
     model = @model modelName
 
     { filter, options } = new Query filter, model.model
+
+    debug 'destroyAll.filter', modelName, inspect filter, false, null
+
     { where, fields } = filter
 
     collection.remove where, options
@@ -282,6 +284,9 @@ class ORM extends Connector
     model = @model modelName
 
     { filter, options } = new Query filter, model.model
+
+    debug 'update.filter', modelName, inspect filter, false, null
+
     { where } = filter
 
     collection.update where, data, options
