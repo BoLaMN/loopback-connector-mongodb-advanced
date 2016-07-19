@@ -29,21 +29,28 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.all = function(modelName, filter, options, callback) {
-    var aggregate, collection, cursor, fields, model, ref1, where;
+    var aggregate, collection, cursor, fields, model, where;
     if (options == null) {
       options = {};
     }
     debug('all', modelName, filter);
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    filter = new Query(filter, model.model).filter;
     debug('all.filter', modelName, inspect(filter, false, null));
-    where = filter.where, aggregate = filter.aggregate, fields = filter.fields;
+    where = filter.where, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
     if (aggregate.length) {
       aggregate.unshift({
         '$match': where
       });
-      cursor = collection.aggregate(aggregate, options);
+      Object.keys(options).forEach(function(option) {
+        var object;
+        object = {};
+        object[option] = options['$' + option];
+        return aggregate.push(object);
+      });
+      debug('all.aggregate', modelName, inspect(aggregate, false, null));
+      cursor = collection.aggregate(aggregate);
     } else {
       cursor = collection.find(where, fields, options);
     }
@@ -63,7 +70,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.count = function(modelName, filter, options, callback) {
-    var collection, model, ref1, where;
+    var collection, model, where;
     if (options == null) {
       options = {};
     }
@@ -73,7 +80,7 @@ ORM = (function(superClass) {
     }
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    filter = new Query(filter, model.model).filter;
     debug('where.filter', modelName, inspect(filter, false, null));
     where = filter.where;
     return collection.count(where).tap(function(results) {
@@ -225,15 +232,15 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.findOrCreate = function(modelName, filter, data, callback) {
-    var collection, fields, model, options, query, ref1, sort, where;
+    var aggregate, collection, fields, model, options, query, where;
     if (filter == null) {
       filter = {};
     }
     debug('findOrCreate', modelName, filter, data);
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
-    where = filter.where, fields = filter.fields, sort = filter.sort;
+    filter = new Query(filter, model.model).filter;
+    where = filter.where, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
     query = {
       projection: fields,
       sort: sort,
@@ -347,7 +354,7 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.update = function(modelName, filter, data, options, callback) {
-    var collection, model, ref1, where;
+    var aggregate, collection, fields, model, where;
     if (options == null) {
       options = {};
     }
@@ -357,9 +364,9 @@ ORM = (function(superClass) {
     }
     collection = this.collection(modelName);
     model = this.model(modelName);
-    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    filter = new Query(filter, model.model).filter;
     debug('update.filter', modelName, inspect(filter, false, null));
-    where = filter.where;
+    where = filter.where, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
     return collection.update(where, data, options).tap(function(results) {
       return debug('update.callback', modelName, results);
     }).asCallback(callback, {

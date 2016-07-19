@@ -22,12 +22,10 @@ Query = (function() {
     var key, value;
     this.model = model;
     this.filter = {
+      aggregate: [],
       fields: {},
-      where: {},
-      aggregate: []
-    };
-    this.options = {
-      sort: {}
+      options: {},
+      where: {}
     };
     for (key in filter) {
       if (!hasProp.call(filter, key)) continue;
@@ -131,7 +129,7 @@ Query = (function() {
     };
     add(includes, (function(_this) {
       return function(item, notArray) {
-        var fields, filter, keyFrom, keyTo, lookup, lookups, modelTo, multiple, name, ref1, where;
+        var aggregate, fields, filter, keyFrom, keyTo, lookup, modelTo, multiple, name, ref1, where;
         ref1 = _this.model.relations[item.relation || item], modelTo = ref1.modelTo, multiple = ref1.multiple, name = ref1.name, keyFrom = ref1.keyFrom, keyTo = ref1.keyTo;
         if (!modelTo) {
           return;
@@ -152,7 +150,7 @@ Query = (function() {
         }
         if (item.scope) {
           filter = new Query(item.scope, modelTo).filter;
-          lookups = filter.lookups, where = filter.where, fields = filter.fields;
+          aggregate = filter.aggregate, where = filter.where, fields = filter.fields;
           if (Object.keys(where).length) {
             _this.filter.aggregate.push({
               $match: where
@@ -163,8 +161,8 @@ Query = (function() {
               $project: fields
             });
           }
-          if (lookups.length) {
-            return _this.filter.aggregate = _this.filter.aggregate.concat(lookups);
+          if (aggregate.length) {
+            return _this.filter.aggregate = _this.filter.aggregate.concat(aggregate);
           }
         }
       };
@@ -194,7 +192,7 @@ Query = (function() {
    */
 
   Query.prototype.limit = function(limit) {
-    this.options.limit = limit;
+    this.filter.options.limit = limit;
     return this;
   };
 
@@ -207,7 +205,7 @@ Query = (function() {
    */
 
   Query.prototype.skip = function(skip) {
-    this.options.skip = skip;
+    this.filter.options.skip = skip;
     return this;
   };
 
@@ -249,7 +247,7 @@ Query = (function() {
    */
 
   Query.prototype.sort = function(sorts, value) {
-    var matches;
+    var base, matches;
     if (isArray(sorts)) {
       sorts.forEach((function(_this) {
         return function(sort) {
@@ -265,9 +263,14 @@ Query = (function() {
       if (sorts === 'id') {
         sorts = '_id';
       }
-      this.options.sort[sorts] = value === 'DE' ? -1 : 1;
+      if ((base = this.filter.options).sort == null) {
+        base.sort = {};
+      }
+      this.filter.options.sort[sorts] = value === 'DE' ? -1 : 1;
     } else {
-      this.options.sort._id = 1;
+      this.filter.options.sort = {
+        _id: 1
+      };
     }
     return this;
   };

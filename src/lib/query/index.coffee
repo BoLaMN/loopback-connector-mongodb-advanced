@@ -15,8 +15,11 @@ Where = require './where'
 
 class Query
   constructor: (filter, @model) ->
-    @filter = fields: {}, where: {}, aggregate: []
-    @options = sort: {}
+    @filter =
+      aggregate: []
+      fields: {}
+      options: {}
+      where: {}
 
     for own key, value of filter
       if isFunction @[key]
@@ -110,7 +113,7 @@ class Query
 
       if item.scope
         { filter } = new Query item.scope, modelTo
-        { lookups, where, fields } = filter
+        { aggregate, where, fields } = filter
 
         if Object.keys(where).length
           @filter.aggregate.push $match: where
@@ -118,8 +121,8 @@ class Query
         if Object.keys(fields).length
           @filter.aggregate.push $project: fields
 
-        if lookups.length
-          @filter.aggregate = @filter.aggregate.concat lookups
+        if aggregate.length
+          @filter.aggregate = @filter.aggregate.concat aggregate
 
     return this
 
@@ -143,7 +146,7 @@ class Query
   ###
 
   limit: (limit) ->
-    @options.limit = limit
+    @filter.options.limit = limit
 
     this
 
@@ -155,7 +158,7 @@ class Query
   ###
 
   skip: (skip) ->
-    @options.skip = skip
+    @filter.options.skip = skip
 
     this
 
@@ -202,9 +205,10 @@ class Query
       if sorts is 'id'
         sorts = '_id'
 
-      @options.sort[sorts] = if value is 'DE' then -1 else 1
+      @filter.options.sort ?= {}
+      @filter.options.sort[sorts] = if value is 'DE' then -1 else 1
     else
-      @options.sort._id = 1
+      @filter.options.sort = _id: 1
 
     this
 

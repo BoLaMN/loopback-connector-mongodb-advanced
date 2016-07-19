@@ -19,15 +19,23 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model.model
+    { filter } = new Query filter, model.model
 
     debug 'all.filter', modelName, inspect filter, false, null
 
-    { where, aggregate, fields } = filter
+    { where, aggregate, fields, options } = filter
 
     if aggregate.length
       aggregate.unshift '$match': where
-      cursor = collection.aggregate aggregate, options
+
+      Object.keys(options).forEach (option) ->
+        object = {}
+        object[option] = options['$' + option]
+        aggregate.push object
+
+      debug 'all.aggregate', modelName, inspect aggregate, false, null
+
+      cursor = collection.aggregate aggregate
     else
       cursor = collection.find where, fields, options
 
@@ -53,7 +61,7 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model.model
+    { filter } = new Query filter, model.model
 
     debug 'where.filter', modelName, inspect filter, false, null
 
@@ -185,8 +193,8 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model.model
-    { where, fields, sort } = filter
+    { filter } = new Query filter, model.model
+    { where, aggregate, fields, options } = filter
 
     query =
       projection: fields
@@ -283,11 +291,11 @@ class ORM extends Connector
     collection = @collection modelName
     model = @model modelName
 
-    { filter, options } = new Query filter, model.model
+    { filter } = new Query filter, model.model
 
     debug 'update.filter', modelName, inspect filter, false, null
 
-    { where } = filter
+    { where, aggregate, fields, options } = filter
 
     collection.update where, data, options
       .tap (results) ->
