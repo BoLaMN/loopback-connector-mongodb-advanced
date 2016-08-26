@@ -3,7 +3,7 @@
 debug = require('debug')('loopback:connector:mongodb-advanced')
 
 { isObject, isString, isArray
-  isUndefined, isRegExp } = require 'lodash'
+  isUndefined, isRegExp, isFunction } = require 'lodash'
 
 ###*
 * Where
@@ -25,28 +25,38 @@ class Where
   # @api public
   ###
 
-  parse: (conditions, value) ->
-    if isObject conditions
-      keys = Object.keys conditions
+  parse: (where) ->
 
-      keys.forEach (key) =>
-        @parse key, conditions[key]
+    if where is null or typeof where isnt 'object'
+      return @query
 
-    if isString conditions
-      if isUndefined value
-        @lastKey = conditions
-        return this
+    Object.keys(where).forEach (propName) =>
+      cond = where[propName]
 
-      if isRegExp value
-        value = $regex: value
+      if propName is 'id'
+        propName = '_id'
 
-      if isArray value
-        value = $in: value
+      if propName in [ 'and', 'or', 'nor' ]
+        if Array.isArray cond
+          cond = cond.map (c) =>
+            @parse c
 
-      if conditions is 'id'
-        conditions = '_id'
+        @[propName] propName, cond
+        delete @query[propName]
 
-      @query[conditions] = value
+      spec = false
+      options = null
+
+      if cond and cond.constructor.name is 'Object'
+        options = cond.options
+        spec = Object.keys(cond)[0]
+        cond = cond[spec]
+
+      if spec
+        return @[spec] propName, cond
+
+      else
+        @query[propName] = cond or $type: 10
 
     this
 
@@ -73,12 +83,35 @@ class Where
     @matches.apply this, arguments
 
   ###*
+  # Between
+  #
+  # @param {String} key - key
+  # @param {Mixed} value - value
+  # @api public
+  ###
+
+  between: (key, [ gte, lte ]) ->
+    @lastKey = key
+    @gte gte
+
+    @lastKey = key
+    @lte lte
+
+    this
+
+  ###*
   # Same as .where(), only less flexible
   #
   # @param {String} key - key
   # @param {Mixed} value - value
   # @api public
   ###
+
+  inq: (key, value) ->
+    @in key, value
+
+  neq: (key, value) ->
+    @ne key, value
 
   equals: (value) ->
     key = @lastKey
@@ -124,7 +157,7 @@ class Where
     hasValue = value isnt undefined
 
     if hasValue
-      @query[key] = {}
+      @query[key] ?= {}
       @query[key][operator] = value
     else
       @query[operator] = key

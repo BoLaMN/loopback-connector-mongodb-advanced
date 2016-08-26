@@ -16,6 +16,7 @@ Where = require './where'
 class Query
   constructor: (filter, @model) ->
     @filter =
+      include: null
       aggregate: []
       fields: {}
       options: {}
@@ -76,57 +77,6 @@ class Query
     this
 
   ###*
-  # Include fields in a result
-  #
-  # @param {String} key
-  # @api public
-  ###
-
-  include: (includes) ->
-
-    add = (item, fn) ->
-      if Array.isArray item
-        item.forEach fn
-      else fn item, true
-
-    normId = (id) ->
-      if id is 'id'
-        '_id'
-      else id
-
-    add includes, (item, notArray) =>
-      { modelTo, multiple, name, keyFrom, keyTo } = @model.relations[item.relation or item]
-
-      if not modelTo
-        return
-
-      lookup =
-        from: modelTo.modelName
-        localField: normId keyFrom
-        foreignField: normId keyTo
-        as: name
-
-      @filter.aggregate.push $lookup: lookup
-
-      if not multiple
-        @filter.aggregate.push $unwind: '$' + name
-
-      if item.scope
-        { filter } = new Query item.scope, modelTo
-        { aggregate, where, fields } = filter
-
-        if Object.keys(where).length
-          @filter.aggregate.push $match: where
-
-        if Object.keys(fields).length
-          @filter.aggregate.push $project: fields
-
-        if aggregate.length
-          @filter.aggregate = @filter.aggregate.concat aggregate
-
-    return this
-
-  ###*
   # Exclude fields from result
   #
   # @param {String} key
@@ -147,6 +97,11 @@ class Query
 
   limit: (limit) ->
     @filter.options.limit = limit
+
+    this
+
+  include: (includes) ->
+    @filter.include = includes
 
     this
 

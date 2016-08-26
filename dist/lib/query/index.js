@@ -22,6 +22,7 @@ Query = (function() {
     var key, value;
     this.model = model;
     this.filter = {
+      include: null,
       aggregate: [],
       fields: {},
       options: {},
@@ -105,73 +106,6 @@ Query = (function() {
 
 
   /**
-   * Include fields in a result
-  #
-   * @param {String} key
-   * @api public
-   */
-
-  Query.prototype.include = function(includes) {
-    var add, normId;
-    add = function(item, fn) {
-      if (Array.isArray(item)) {
-        return item.forEach(fn);
-      } else {
-        return fn(item, true);
-      }
-    };
-    normId = function(id) {
-      if (id === 'id') {
-        return '_id';
-      } else {
-        return id;
-      }
-    };
-    add(includes, (function(_this) {
-      return function(item, notArray) {
-        var aggregate, fields, filter, keyFrom, keyTo, lookup, modelTo, multiple, name, ref1, where;
-        ref1 = _this.model.relations[item.relation || item], modelTo = ref1.modelTo, multiple = ref1.multiple, name = ref1.name, keyFrom = ref1.keyFrom, keyTo = ref1.keyTo;
-        if (!modelTo) {
-          return;
-        }
-        lookup = {
-          from: modelTo.modelName,
-          localField: normId(keyFrom),
-          foreignField: normId(keyTo),
-          as: name
-        };
-        _this.filter.aggregate.push({
-          $lookup: lookup
-        });
-        if (!multiple) {
-          _this.filter.aggregate.push({
-            $unwind: '$' + name
-          });
-        }
-        if (item.scope) {
-          filter = new Query(item.scope, modelTo).filter;
-          aggregate = filter.aggregate, where = filter.where, fields = filter.fields;
-          if (Object.keys(where).length) {
-            _this.filter.aggregate.push({
-              $match: where
-            });
-          }
-          if (Object.keys(fields).length) {
-            _this.filter.aggregate.push({
-              $project: fields
-            });
-          }
-          if (aggregate.length) {
-            return _this.filter.aggregate = _this.filter.aggregate.concat(aggregate);
-          }
-        }
-      };
-    })(this));
-    return this;
-  };
-
-
-  /**
    * Exclude fields from result
   #
    * @param {String} key
@@ -193,6 +127,11 @@ Query = (function() {
 
   Query.prototype.limit = function(limit) {
     this.filter.options.limit = limit;
+    return this;
+  };
+
+  Query.prototype.include = function(includes) {
+    this.filter.include = includes;
     return this;
   };
 

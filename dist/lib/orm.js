@@ -29,16 +29,16 @@ ORM = (function(superClass) {
    */
 
   ORM.prototype.all = function(modelName, filter, options, callback) {
-    var aggregate, collection, cursor, fields, model, where;
+    var aggregate, collection, cursor, fields, include, model, where;
     if (options == null) {
       options = {};
     }
     debug('all', modelName, filter);
     collection = this.collection(modelName);
-    model = this.model(modelName);
-    filter = new Query(filter, model.model).filter;
+    model = this.model(modelName).model;
+    filter = new Query(filter, model).filter;
     debug('all.filter', modelName, inspect(filter, false, null));
-    where = filter.where, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
+    where = filter.where, include = filter.include, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
     if (aggregate.length) {
       aggregate.unshift({
         '$match': where
@@ -56,7 +56,13 @@ ORM = (function(superClass) {
     }
     return cursor.mapArray(rewriteId).tap(function(results) {
       return debug('all.callback', modelName, results);
-    }).asCallback(callback);
+    }).then(function(results) {
+      if (include) {
+        return model.include(results, include, options, callback);
+      } else {
+        return callback(null, results);
+      }
+    });
   };
 
 
@@ -79,8 +85,8 @@ ORM = (function(superClass) {
       delete filter.fields;
     }
     collection = this.collection(modelName);
-    model = this.model(modelName);
-    filter = new Query(filter, model.model).filter;
+    model = this.model(modelName).model;
+    filter = new Query(filter, model).filter;
     debug('where.filter', modelName, inspect(filter, false, null));
     where = filter.where;
     return collection.count(where).tap(function(results) {
@@ -153,8 +159,8 @@ ORM = (function(superClass) {
       delete filter.fields;
     }
     collection = this.collection(modelName);
-    model = this.model(modelName);
-    ref1 = new Query(filter, model.model), filter = ref1.filter, options = ref1.options;
+    model = this.model(modelName).model;
+    ref1 = new Query(filter, model), filter = ref1.filter, options = ref1.options;
     debug('destroyAll.filter', modelName, inspect(filter, false, null));
     where = filter.where, fields = filter.fields;
     return collection.remove(where, options).then(function(results) {
@@ -238,8 +244,8 @@ ORM = (function(superClass) {
     }
     debug('findOrCreate', modelName, filter, data);
     collection = this.collection(modelName);
-    model = this.model(modelName);
-    filter = new Query(filter, model.model).filter;
+    model = this.model(modelName).model;
+    filter = new Query(filter, model).filter;
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
     query = {
       projection: fields,
@@ -268,7 +274,7 @@ ORM = (function(superClass) {
       options = {};
     }
     debug('replaceById', modelName, id, data);
-    return this.replaceWithOptions(model, id, data, {
+    return this.replaceWithOptions(modelName, id, data, {
       upsert: false
     }).tap(function(results) {
       return debug('replaceById.callback', modelName, results);
@@ -290,7 +296,7 @@ ORM = (function(superClass) {
       options = {};
     }
     debug('replaceOrCreate', modelName, data);
-    return this.replaceWithOptions(model, id, data, {
+    return this.replaceWithOptions(modelName, null, data, {
       upsert: true
     }).tap(function(results) {
       return debug('replaceOrCreate.callback', modelName, results);
@@ -316,10 +322,11 @@ ORM = (function(superClass) {
       options = {};
     }
     debug('updateWithOptions', modelName, id, data);
+    id = {
+      _id: id || data[this.idName(modelName)]
+    };
     collection = this.collection(modelName);
-    return collection.update({
-      _id: normalizeId(id)
-    }, data, options).tap(function(results) {
+    return collection.update(id, normalizeId(data), options).tap(function(results) {
       return debug('updateWithOptions.callback', modelName, results);
     }).asCallback(callback);
   };
@@ -363,11 +370,11 @@ ORM = (function(superClass) {
       delete filter.fields;
     }
     collection = this.collection(modelName);
-    model = this.model(modelName);
-    filter = new Query(filter, model.model).filter;
+    model = this.model(modelName).model;
+    filter = new Query(filter, model).filter;
     debug('update.filter', modelName, inspect(filter, false, null));
     where = filter.where, aggregate = filter.aggregate, fields = filter.fields, options = filter.options;
-    return collection.update(where, data, options).tap(function(results) {
+    return collection.update(where, normalizeId(data), options).tap(function(results) {
       return debug('update.callback', modelName, results);
     }).asCallback(callback, {
       spread: true
@@ -396,7 +403,7 @@ ORM = (function(superClass) {
     sort = ['_id', 'asc'];
     return collection.findAndModify({
       _id: id
-    }, data, sort).tap(function(results) {
+    }, normalizeId(data), sort).tap(function(results) {
       return debug('updateAttributes.callback', modelName, results);
     }).asCallback(callback);
   };

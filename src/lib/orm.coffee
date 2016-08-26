@@ -17,13 +17,13 @@ class ORM extends Connector
     debug 'all', modelName, filter
 
     collection = @collection modelName
-    model = @model modelName
 
-    { filter } = new Query filter, model.model
+    { model } = @model modelName
+    { filter } = new Query filter, model
 
     debug 'all.filter', modelName, inspect filter, false, null
 
-    { where, aggregate, fields, options } = filter
+    { where, include, aggregate, fields, options } = filter
 
     if aggregate.length
       aggregate.unshift '$match': where
@@ -42,7 +42,11 @@ class ORM extends Connector
     cursor.mapArray rewriteId
       .tap (results) ->
         debug 'all.callback', modelName, results
-      .asCallback callback
+      .then (results) ->
+        if include
+          model.include results, include, options, callback
+        else
+          callback null, results
 
   ###*
   # Count the number of instances for the given model
@@ -55,13 +59,13 @@ class ORM extends Connector
   count: (modelName, filter, options = {}, callback) ->
     debug 'count', modelName, filter
 
-    if typeof filter == 'object'
+    if typeof filter is 'object'
       delete filter.fields
 
     collection = @collection modelName
-    model = @model modelName
 
-    { filter } = new Query filter, model.model
+    { model } = @model modelName
+    { filter } = new Query filter, model
 
     debug 'where.filter', modelName, inspect filter, false, null
 
@@ -102,7 +106,7 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    collection.remove _id: id, true
+    collection.remove { _id: id }, true
       .tap (results) ->
         debug 'delete.callback', modelName, results
       .asCallback callback
@@ -120,9 +124,9 @@ class ORM extends Connector
       delete filter.fields
 
     collection = @collection modelName
-    model = @model modelName
 
-    { filter, options } = new Query filter, model.model
+    { model } = @model modelName
+    { filter, options } = new Query filter, model
 
     debug 'destroyAll.filter', modelName, inspect filter, false, null
 
@@ -155,7 +159,7 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    collection.findOne _id: id, options
+    collection.findOne { _id: id }, options
       .tap (results) ->
         debug 'findOne.callback', modelName, results
       .asCallback callback
@@ -171,7 +175,7 @@ class ORM extends Connector
 
     collection = @collection modelName
 
-    collection.findOne _id: id , options, rewriteId
+    collection.findOne { _id: id }, options, rewriteId
       .tap (results) ->
         debug 'find.callback', modelName, results
       .asCallback callback
@@ -191,9 +195,9 @@ class ORM extends Connector
     debug 'findOrCreate', modelName, filter, data
 
     collection = @collection modelName
-    model = @model modelName
 
-    { filter } = new Query filter, model.model
+    { model } = @model modelName
+    { filter } = new Query filter, model
     { where, aggregate, fields, options } = filter
 
     query =
@@ -217,7 +221,7 @@ class ORM extends Connector
   replaceById: (modelName, id, data, options = {}, callback) ->
     debug 'replaceById', modelName, id, data
 
-    @replaceWithOptions model, id, data, upsert: false
+    @replaceWithOptions modelName, id, data, upsert: false
       .tap (results) ->
         debug 'replaceById.callback', modelName, results
       .asCallback callback
@@ -233,7 +237,7 @@ class ORM extends Connector
   replaceOrCreate: (modelName, data, options = {}, callback) ->
     debug 'replaceOrCreate', modelName, data
 
-    @replaceWithOptions model, id, data, upsert: true
+    @replaceWithOptions modelName, null, data, upsert: true
       .tap (results) ->
         debug 'replaceOrCreate.callback', modelName, results
       .asCallback callback
@@ -252,9 +256,11 @@ class ORM extends Connector
   replaceWithOptions: (modelName, id, data, options = {}, callback) ->
     debug 'updateWithOptions', modelName, id, data
 
+    id = _id: id or data[ @idName(modelName) ]
+
     collection = @collection modelName
 
-    collection.update { _id: normalizeId(id) }, data, options
+    collection.update id, normalizeId(data), options
       .tap (results) ->
         debug 'updateWithOptions.callback', modelName, results
       .asCallback callback
@@ -289,15 +295,15 @@ class ORM extends Connector
       delete filter.fields
 
     collection = @collection modelName
-    model = @model modelName
 
-    { filter } = new Query filter, model.model
+    { model } = @model modelName
+    { filter } = new Query filter, model
 
     debug 'update.filter', modelName, inspect filter, false, null
 
     { where, aggregate, fields, options } = filter
 
-    collection.update where, data, options
+    collection.update where, normalizeId(data), options
       .tap (results) ->
         debug 'update.callback', modelName, results
       .asCallback callback, spread: true
@@ -319,7 +325,7 @@ class ORM extends Connector
     id = data[ @idName(modelName) ]
     sort = [ '_id', 'asc' ]
 
-    collection.findAndModify { _id: id }, data, sort
+    collection.findAndModify { _id: id }, normalizeId(data), sort
       .tap (results) ->
         debug 'updateAttributes.callback', modelName, results
       .asCallback callback
